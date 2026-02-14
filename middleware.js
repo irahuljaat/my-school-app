@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-// This forces Vercel to skip the CommonJS compilation check
-export const runtime = 'edge'; 
+// Update this line right here:
+export const runtime = 'experimental-edge'; 
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
