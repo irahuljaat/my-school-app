@@ -1,28 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export function middleware(request) {
-  const path = request.nextUrl.pathname;
-  const isLoggedIn = request.cookies.get('user_session')?.value;
+  const { pathname } = request.nextUrl;
+  
+  // Check for the session cookie
+  const hasSession = request.cookies.has('user_session');
 
-  // Define exactly which folders are private
-  const isProtectedRoute = 
-    path.startsWith('/dashboard') || 
-    path.startsWith('/students') || 
-    path.startsWith('/id-generator');
-
-  // If no cookie is found and user is trying to enter admin areas
-  if (isProtectedRoute && !isLoggedIn) {
-    // We redirect to login and add a "no-cache" header to the response
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.headers.set('Cache-Control', 'no-store, max-age=0');
-    return response;
+  // If the user is trying to access protected routes without a session
+  if (!hasSession) {
+    // You can add more paths to this array if needed
+    const protectedPaths = ['/dashboard', '/students', '/id-generator'];
+    
+    if (protectedPaths.some(path => pathname.startsWith(path))) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  // This matcher ensures the middleware runs on EVERY subpage of these folders
   matcher: [
     '/dashboard/:path*', 
     '/students/:path*', 
