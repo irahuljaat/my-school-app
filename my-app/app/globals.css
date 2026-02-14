@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* Add this style to your global CSS for PDF compatibility */
+.hide-for-export {
+    display: none !important;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes slow-zoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+.animate-slow-zoom {
+  animation: slow-zoom 10s ease-out forwards;
+}
+
+/* Optimized Marquee */
+
+/* Custom Swiper Arrow Positioning */
+.swiper-button-prev-custom, .swiper-button-next-custom {
+  cursor: pointer;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+/* Antialiasing for smooth text */
+.antialiased {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+
+/* ========================================================================= */
+/* --- GLOBAL PRINT STYLES FOR MARKSHEET ISOLATION (FIXED) --- */
+/* This version uses high specificity to ensure content visibility. */
+/* ========================================================================= */
+
+@media print {
+    
+    /* 1. HIDE ALL CONTAINERS: Hides navigation, sidebars, controls, etc. */
+    /* This targets major app wrappers and common UI elements */
+  
+    
+    /* 2. SHOW THE MARKSHEET CONTAINER: Target the specific wrapper holding the marksheets */
+    /* This overrides the 'hide all' rule for the marksheet area */
+    .marksheet-document-container {
+        display: block !important;
+        visibility: visible !important;
+        position: absolute !important; /* Temporarily place it on top to ensure visibility */
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important; 
+        max-width: none !important; 
+        z-index: 9999 !important; /* Ensure it floats above any hidden elements */
+        background-color: white !important;
+        
+        /* Ensure its children are visible */
+        * {
+            visibility: visible !important;
+            display: block !important;
+        }
+    }
+    
+    /* 3. RESET HTML/BODY STYLING */
+    body, html {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* 4. MARKSHEET DOCUMENT STYLING (A4 size context and page breaks) */
+    .marksheet-document-print-area {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        padding: 10mm 15mm !important; 
+        
+        page-break-after: always;
+        page-break-inside: avoid;
+
+        /* Clean up screen-only styles */
+        border: none !important;
+        box-shadow: none !important;
+        background-color: white !important;
+    }
+
+    /* Prevent the last document from forcing a blank page after it */
+    .marksheet-document-print-area:last-child {
+        page-break-after: avoid;
+    }
+
+    /* 5. OVERRIDE TAILWIND UTILITY */
+    .print\:hidden {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
