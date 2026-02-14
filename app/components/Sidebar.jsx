@@ -2,15 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Added for the logo
+
 import { 
-    HiChevronDown, HiOutlineUsers, HiOutlineAcademicCap, 
-    HiOutlineClipboardList, HiOutlineCalendar, HiOutlineMail, 
-    HiOutlineUserGroup, HiOutlineHome, HiOutlineLibrary, 
-    HiOutlineCurrencyDollar, HiOutlineChartBar, HiOutlineLightningBolt,
-    HiOutlineIdentification, HiOutlineGlobeAlt, HiOutlineBell, HiOutlineCog
+    HiChevronDown, HiOutlineAcademicCap, 
+    HiOutlineClipboardList, HiOutlineHome, 
+    HiOutlineUserGroup, HiOutlineCurrencyDollar, 
+    HiOutlineChartBar, HiOutlineLightningBolt,
+    HiOutlineIdentification, HiOutlineGlobeAlt, 
+    HiOutlineBell, HiOutlineCog, HiOutlineX
 } from 'react-icons/hi';
 
-const Sidebar = ({ activePath }) => {
+// Added isOpen and onClose props for mobile functionality
+const Sidebar = ({ activePath, isOpen, onClose }) => {
     // 1. Primary Navigation Items
     const primaryNav = [
         { name: 'Dashboard', icon: HiOutlineHome, path: '/dashboard' },
@@ -40,7 +44,7 @@ const Sidebar = ({ activePath }) => {
     ];
 
     const NavItem = ({ name, icon: Icon, path, subItems = [], activePath }) => {
-        const [isOpen, setIsOpen] = useState(
+        const [isSubOpen, setIsSubOpen] = useState(
             activePath && subItems.some(item => activePath.startsWith(item.path))
         );
 
@@ -50,7 +54,10 @@ const Sidebar = ({ activePath }) => {
         const handleClick = (e) => {
             if (hasSubItems) {
                 e.preventDefault();
-                setIsOpen(!isOpen);
+                setIsSubOpen(!isSubOpen);
+            } else {
+                // Close sidebar on mobile after clicking a link
+                if (onClose) onClose();
             }
         };
 
@@ -72,16 +79,17 @@ const Sidebar = ({ activePath }) => {
                     </div>
                     <span className="flex-1 font-bold text-sm tracking-tight">{name}</span>
                     {hasSubItems && (
-                        <HiChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                        <HiChevronDown className={`w-4 h-4 transition-transform duration-300 ${isSubOpen ? 'rotate-180' : ''}`} />
                     )}
                 </Link>
 
-                {hasSubItems && isOpen && (
+                {hasSubItems && isSubOpen && (
                     <div className="ml-12 mt-2 space-y-1 border-l-2 border-slate-100 pl-4 animate-in slide-in-from-top-2 duration-300">
                         {subItems.map(item => (
                             <Link 
                                 key={item.name} 
                                 href={item.path}
+                                onClick={() => onClose && onClose()}
                                 className={`block py-2 text-sm font-semibold transition-colors ${
                                     activePath === item.path 
                                     ? 'text-indigo-600' 
@@ -98,73 +106,98 @@ const Sidebar = ({ activePath }) => {
     };
 
     return (
-        <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-100 h-screen overflow-y-auto hidden md:flex flex-col sticky top-0">
-            {/* Logo Section */}
-            <div className="p-8 mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-200">
-                        <HiOutlineAcademicCap className="text-white w-6 h-6" />
-                    </div>
-                    <span className="text-xl font-black text-slate-800 tracking-tighter uppercase">EduFlow</span>
-                </div>
-            </div>
+        <>
+            {/* Mobile Backdrop: Only visible when sidebar is toggled open on mobile */}
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] lg:hidden transition-opacity duration-300"
+                    onClick={onClose}
+                />
+            )}
 
-            {/* Navigation Sections */}
-            <div className="flex-1 px-6 space-y-8 pb-10">
-                {/* Main Menu */}
-                <div>
-                    <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Core Management</h3>
-                    <div className="space-y-1">
-                        {primaryNav.map(item => (
-                            <NavItem key={item.name} {...item} activePath={activePath} />
-                        ))}
-                        
+            {/* Sidebar Container */}
+            <aside className={`
+                fixed inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-100 h-screen overflow-y-auto 
+                flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:block shrink-0
+                ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+            `}>
+                {/* Logo Section */}
+                <div className="p-8 mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 relative shrink-0 overflow-hidden rounded-xl shadow-xl shadow-indigo-100">
+                            <Image 
+                                src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" 
+                                alt="MVG School Logo"
+                                fill
+                                className="object-contain"
+                                priority
+                            />
+                        </div>
+                        <span className="text-xl font-black text-slate-800 tracking-tighter uppercase">MVG SCHOOL</span>
+                    </div>
+                    
+                    {/* Close button - Mobile Only */}
+                    <button 
+                        onClick={onClose}
+                        className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors"
+                    >
+                        <HiOutlineX size={24} />
+                    </button>
+                </div>
+
+                {/* Navigation Sections */}
+                <div className="flex-1 px-6 space-y-8 pb-10">
+                    <div>
+                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Core Management</h3>
+                        <div className="space-y-1">
+                            {primaryNav.map(item => (
+                                <NavItem key={item.name} {...item} activePath={activePath} />
+                            ))}
+                            <NavItem 
+                                name="Reports" 
+                                icon={HiOutlineChartBar} 
+                                path="/reports" 
+                                subItems={reportsNav} 
+                                activePath={activePath} 
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Financials</h3>
                         <NavItem 
-                            name="Reports" 
-                            icon={HiOutlineChartBar} 
-                            path="/reports" 
-                            subItems={reportsNav} 
+                            name="Finance" 
+                            icon={HiOutlineCurrencyDollar} 
+                            path="/finance" 
+                            subItems={financeNav} 
                             activePath={activePath} 
                         />
                     </div>
-                </div>
 
-                {/* Finance Section */}
-                <div>
-                    <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Financials</h3>
-                    <NavItem 
-                        name="Finance" 
-                        icon={HiOutlineCurrencyDollar} 
-                        path="/finance" 
-                        subItems={financeNav} 
-                        activePath={activePath} 
-                    />
-                </div>
-
-                {/* Operations Section */}
-                <div>
-                    <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Operations</h3>
-                    <div className="space-y-1">
-                        {otherNav.map(item => (
-                            <NavItem key={item.name} {...item} activePath={activePath} />
-                        ))}
+                    <div>
+                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Operations</h3>
+                        <div className="space-y-1">
+                            {otherNav.map(item => (
+                                <NavItem key={item.name} {...item} activePath={activePath} />
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Footer / User Profile Brief */}
-            <div className="p-6 border-t border-slate-50 bg-slate-50/50">
-                <div className="flex items-center gap-3 p-2">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                        AD
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                        <p className="text-xs font-black text-slate-700 truncate">Administrator</p>
-                        <p className="text-[10px] text-slate-400 font-bold italic">Super Admin</p>
+                {/* Footer / User Profile Brief */}
+                <div className="p-6 border-t border-slate-50 bg-slate-50/50">
+                    <div className="flex items-center gap-3 p-2">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                            AD
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-xs font-black text-slate-700 truncate">Administrator</p>
+                            <p className="text-[10px] text-slate-400 font-bold italic">Super Admin</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+        </>
     );
 };
 

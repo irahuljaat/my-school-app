@@ -9,6 +9,7 @@ const MainLayout = ({ children }) => {
     const activePath = usePathname(); 
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // 1. Identify Website Pages vs Admin Pages
     // This includes your landing page, login, and any page in your About/Website folder
@@ -54,9 +55,13 @@ const MainLayout = ({ children }) => {
     // 5. DASHBOARD LAYOUT (Only for Admin Panel)
     return (
         <div className="flex h-screen bg-gray-50">
-            <Sidebar activePath={activePath} /> 
+           <Sidebar 
+                activePath={activePath} 
+                isOpen={isSidebarOpen} 
+                onClose={() => setIsSidebarOpen(false)} 
+            />
             <div className="flex flex-col flex-1 overflow-hidden">
-                <Header />
+               <Header onMenuClick={() => setIsSidebarOpen(true)} />
                 <main className="flex-1 overflow-y-auto">
                     {children}
                 </main>

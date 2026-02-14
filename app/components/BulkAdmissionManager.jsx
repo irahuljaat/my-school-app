@@ -27,18 +27,23 @@ const parseDate = (dateValue) => {
     return '';
 };
 
+// 1. UPDATED FIELDS LIST (Removed rollNumber, Added new fields)
 const ALL_FIELDS = [
-    'srNo', 'rollNumber', 'name', 'grade', 'dob', 'religion', 
-    'fatherName', 'motherName', 'contact', 'address',
+    'srNo', 'admissionDate', 'name', 'grade', 'gender', 'caste', 'dob', 'aadhaarNumber', 
+    'religion', 'fatherName', 'motherName', 'contact', 'address',
     'stream', 'optSubject1', 'optSubject2', 'optSubject3'
 ];
 
+// 2. UPDATED TEMPLATE DATA
 const TEMPLATE_DATA = [{
     srNo: 1001,
-    rollNumber: "25",
+    admissionDate: new Date().toISOString().split('T')[0],
     name: "John Doe",
     grade: "10",
+    gender: "Male",
+    caste: "General",
     dob: "2010-05-15",
+    aadhaarNumber: "123456789012",
     religion: "Hindu",
     fatherName: "Mr. Smith",
     motherName: "Mrs. Smith",
@@ -50,7 +55,6 @@ const TEMPLATE_DATA = [{
     optSubject3: ""
 }];
 
-// Added activeSession to props
 function BulkAdmissionManager({ onComplete, activeSession }) {
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState(null);
@@ -69,7 +73,6 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Safety check for activeSession
         if (!activeSession) {
             setMessage({ type: 'error', text: 'No active session detected. Cannot upload.' });
             return;
@@ -102,8 +105,6 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
         }
 
         const batch = writeBatch(db);
-        
-        // UPDATED: Path now points to the session subcollection
         const sessionStudentsCollection = collection(db, 'sessions', activeSession, 'students');
         
         let successCount = 0;
@@ -122,20 +123,25 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
 
             const isHighSchool = grade === '11' || grade === '12';
 
+            // 3. UPDATED MAPPING (Matching your new fields)
             const studentData = {
                 id: `S${srNo}_${grade}_${timestamp + index}`,
                 srNo: parseInt(srNo),
-                rollNumber: String(row.rollNumber || ''),
+                admissionDate: parseDate(row.admissionDate) || new Date().toISOString().split('T')[0],
                 name: String(row.name).trim(),
                 grade: grade,
+                gender: String(row.gender || 'Other'),
+                caste: String(row.caste || 'General'),
                 dob: parseDate(row.dob),
+                aadhaarNumber: String(row.aadhaarNumber || ''),
                 religion: String(row.religion || 'Other'),
                 fatherName: String(row.fatherName || ''),
                 motherName: String(row.motherName || ''),
                 contact: String(row.contact || ''),
                 address: String(row.address || ''),
                 imageUrl: null,
-                session: activeSession, // Tracking session inside document
+                isDummy: false, // Default for bulk upload
+                session: activeSession,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
@@ -159,7 +165,7 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
             await batch.commit();
             setMessage({ 
                 type: 'success', 
-                text: `Successfully uploaded ${successCount} students to session ${activeSession}!` 
+                text: `Successfully uploaded ${successCount} students!` 
             });
             if (onComplete) setTimeout(onComplete, 2000);
         } catch (error) {
@@ -172,7 +178,7 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Session Indicator */}
+            {/* UI remains the same as your previous version */}
             <div className="flex justify-center">
                 <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100">
                     <HiOutlineDatabase className="text-indigo-600 w-5 h-5" />
@@ -182,57 +188,39 @@ function BulkAdmissionManager({ onComplete, activeSession }) {
 
             <div className="text-center space-y-2">
                 <h3 className="text-2xl font-black text-slate-800">Bulk Admission</h3>
-                <p className="text-slate-500 text-sm font-medium">Upload hundreds of students in seconds using Excel.</p>
+                <p className="text-slate-500 text-sm font-medium">Excel template updated with Admission Date, Gender, and Caste.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center text-center group hover:border-indigo-400 transition-colors">
-                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
                         <HiOutlineDownload className="w-6 h-6 text-indigo-600" />
                     </div>
-                    <h4 className="font-bold text-slate-800">1. Get Template</h4>
-                    <p className="text-xs text-slate-500 mt-2 mb-6">Download the pre-formatted Excel file with all required fields.</p>
+                    <h4 className="font-bold text-slate-800">1. Get Updated Template</h4>
                     <button 
                         onClick={handleDownloadTemplate}
-                        className="mt-auto px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                        className="mt-4 px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase hover:bg-slate-900 hover:text-white transition-all shadow-sm"
                     >
                         Download Excel
                     </button>
                 </div>
 
-                <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center text-center group hover:border-green-400 transition-colors relative">
-                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center text-center group hover:border-green-400 transition-colors">
+                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
                         <HiOutlineCloudUpload className="w-6 h-6 text-green-600" />
                     </div>
-                    <h4 className="font-bold text-slate-800">2. Upload File</h4>
-                    <p className="text-xs text-slate-500 mt-2 mb-6">Select your filled Excel file to start processing the data.</p>
-                    
-                    <label className={`mt-auto cursor-pointer px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-green-600 hover:text-white transition-all shadow-sm ${!activeSession ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <h4 className="font-bold text-slate-800">2. Upload Filled File</h4>
+                    <label className={`mt-4 cursor-pointer px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase hover:bg-green-600 hover:text-white transition-all shadow-sm ${!activeSession ? 'opacity-50' : ''}`}>
                         {uploading ? 'Processing...' : 'Choose File'}
-                        <input 
-                            type="file" 
-                            className="hidden" 
-                            accept=".xlsx, .xls" 
-                            onChange={handleFileUpload} 
-                            disabled={uploading || !activeSession} 
-                        />
+                        <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} disabled={uploading || !activeSession} />
                     </label>
                 </div>
             </div>
 
             {message && (
-                <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                    {message.type === 'success' ? <HiOutlineCheckCircle className="w-6 h-6 shrink-0" /> : <HiOutlineExclamationCircle className="w-6 h-6 shrink-0" />}
+                <div className={`p-4 rounded-2xl flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                    {message.type === 'success' ? <HiOutlineCheckCircle className="w-6 h-6" /> : <HiOutlineExclamationCircle className="w-6 h-6" />}
                     <span className="font-bold text-sm">{message.text}</span>
-                </div>
-            )}
-
-            {errors.length > 0 && (
-                <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
-                    <p className="text-xs font-black text-red-600 uppercase mb-2">Errors found in rows:</p>
-                    <ul className="text-[11px] text-red-500 max-h-32 overflow-y-auto space-y-1">
-                        {errors.map((err, i) => <li key={i} className="flex items-center gap-2">• {err}</li>)}
-                    </ul>
                 </div>
             )}
         </div>

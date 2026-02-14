@@ -9,7 +9,7 @@ import {
     HiOutlineAcademicCap, 
     HiOutlineX,
     HiOutlineDatabase,
-    HiOutlineLightningBolt // Added icon for dummy status
+    HiOutlineLightningBolt 
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
@@ -22,15 +22,21 @@ const STREAMS_DATA = {
 };
 
 const RELIGIONS = ["Hindu", "Muslim", "Sikh", "Christian", "Other"];
-const CLASSES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const CLASSES = ["LKG" , "UKG" , "PREP" , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const GENDERS = ["Male", "Female", "Other"];
+// ADD THIS LINE:
+const CASTE_CATEGORIES = ["General", "OBC", "SC", "ST", "SBC", "Other"];
 
 function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
     const [formData, setFormData] = useState({ 
-        srNo: '', 
-        rollNumber: '', 
+        srNo: '',  
+        admissionDate: new Date().toISOString().split('T')[0], // Default to today
         name: '', 
         grade: '', 
         dob: '', 
+        gender: '',
+        Category: '',
+        aadhaarNumber: '',
         fatherName: '', 
         motherName: '', 
         contact: '', 
@@ -41,8 +47,9 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
         optSubject2: '',
         optSubject3: '',
         imageUrl: null, 
-        isDummy: false, // NEW: added dummy state
+        isDummy: false, 
     });
+    
     const [loading, setLoading] = useState(false);
     const [submissionMessage, setSubmissionMessage] = useState(null);
 
@@ -51,14 +58,12 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
     useEffect(() => {
         if (isHighSchool && STREAMS_DATA[formData.stream]) {
             const subjects = STREAMS_DATA[formData.stream];
-            if (subjects[0] !== "") { 
-                setFormData(prev => ({
-                    ...prev,
-                    optSubject1: subjects[0],
-                    optSubject2: subjects[1],
-                    optSubject3: subjects[2]
-                }));
-            }
+            setFormData(prev => ({
+                ...prev,
+                optSubject1: subjects[0] || '',
+                optSubject2: subjects[1] || '',
+                optSubject3: subjects[2] || ''
+            }));
         }
     }, [formData.stream, formData.grade, isHighSchool]);
 
@@ -88,19 +93,13 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Helper to toggle dummy status
     const toggleDummy = (val) => {
         setFormData(prev => ({ ...prev, isDummy: val }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (!activeSession) {
-            setSubmissionMessage({ type: 'error', text: 'Active session not detected. Please refresh.' });
-            return;
-        }
-
+        if (!activeSession) return;
         setLoading(true);
 
         try {
@@ -110,17 +109,20 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
             const studentData = {
                 id: generatedId,
                 srNo: parseInt(formData.srNo),
-                rollNumber: String(formData.rollNumber),
+                admissionDate: formData.admissionDate, // New
                 name: formData.name,
                 grade: String(formData.grade), 
                 dob: formData.dob,
+                gender: formData.gender, // New
+                Category: formData.Category, // New
+                aadhaarNumber: formData.aadhaarNumber, // New
                 religion: formData.religion,
                 fatherName: formData.fatherName,
                 motherName: formData.motherName,
                 contact: formData.contact,
                 address: formData.address,
                 imageUrl: formData.imageUrl,
-                isDummy: formData.isDummy, // NEW: Saving dummy status
+                isDummy: formData.isDummy,
                 session: activeSession, 
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -129,20 +131,13 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
             if (isHighSchool) {
                 studentData.stream = formData.stream;
                 studentData.compulsorySubjects = ['Hindi', 'English'];
-                studentData.optionalSubjects = [
-                    formData.optSubject1, 
-                    formData.optSubject2, 
-                    formData.optSubject3
-                ];
+                studentData.optionalSubjects = [formData.optSubject1, formData.optSubject2, formData.optSubject3];
             }
 
             await setDoc(doc(db, 'sessions', activeSession, 'students', generatedId), studentData);
-            
-            setSubmissionMessage({ type: 'success', text: `Admission successful for session ${activeSession}!` });
-            
+            setSubmissionMessage({ type: 'success', text: `Admission successful!` });
             if (onStudentAdded) onStudentAdded();
             setTimeout(() => onClose(), 1500);
-
         } catch (error) {
             setSubmissionMessage({ type: 'error', text: `Error: ${error.message}` });
         } finally {
@@ -152,73 +147,69 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
 
     return (
         <div className="p-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 bg-indigo-50 w-fit px-4 py-1.5 rounded-full border border-indigo-100">
-                    <HiOutlineDatabase className="text-indigo-600 w-4 h-4" />
-                    <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Enrolling: {activeSession || '...'}</span>
-                </div>
-            </div>
-
-            {submissionMessage && (
-                <div className={`p-4 rounded-2xl font-bold text-center border ${submissionMessage.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                    {submissionMessage.text}
-                </div>
-            )}
-            
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     <div className="md:col-span-1 flex flex-col items-center space-y-4">
                         <div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
-                            {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <HiOutlinePhotograph className="w-10 h-10 text-slate-300" />}
+                            {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Student" /> : <HiOutlinePhotograph className="w-10 h-10 text-slate-300" />}
                             <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                         </div>
-                        
-                        {/* DUMMY TOGGLE BUTTONS */}
                         <div className="w-full bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col gap-1">
                             <label className="text-[8px] font-black text-slate-400 uppercase text-center mb-1">Entry Type</label>
                             <div className="grid grid-cols-2 gap-1">
-                                <button 
-                                    type="button"
-                                    onClick={() => toggleDummy(false)}
-                                    className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isDummy ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                                >
-                                    Regular
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => toggleDummy(true)}
-                                    className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}
-                                >
-                                    <HiOutlineLightningBolt className="w-3 h-3" /> Dummy
-                                </button>
+                                <button type="button" onClick={() => toggleDummy(false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isDummy ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Regular</button>
+                                <button type="button" onClick={() => toggleDummy(true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineLightningBolt className="w-3 h-3" /> Dummy</button>
                             </div>
                         </div>
                     </div>
 
                     <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input name="name" placeholder="Full Name" required className="md:col-span-2 p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold focus:ring-2 focus:ring-indigo-500" onChange={handleChange} value={formData.name} />
-                        <input name="srNo" type="number" placeholder="SR No." required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.srNo} />
-                        <input name="rollNumber" placeholder="Roll Number" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.rollNumber} />
+                        <div className="flex flex-col gap-1">
+                             <label className="text-[10px] font-bold text-slate-400 ml-2">Admission Date</label>
+                             <input name="admissionDate" type="date" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.admissionDate} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                             <label className="text-[10px] font-bold text-slate-400 ml-2">SR No.</label>
+                             <input name="srNo" type="number" placeholder="SR No." required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.srNo} />
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <select name="grade" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.grade}>
-                        <option value="">Select Class</option>
+                        <option value="">Class</option>
                         {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
                     </select>
 
+                    <select name="gender" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.gender}>
+                        <option value="">Gender</option>
+                        {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+
+                    <select name="caste" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.caste}>
+        <option value="">Select Caste</option>
+        {CASTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+    </select>
+                    
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-bold text-slate-400 ml-2">DOB</label>
+                        <input type="date" name="dob" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.dob} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input name="aadhaarNumber" placeholder="Aadhaar Number (12 Digits)" maxLength="12" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} value={formData.aadhaarNumber} />
                     <select name="religion" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.religion}>
                         <option value="">Religion</option>
                         {RELIGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
-                    
-                    <input type="date" name="dob" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.dob} />
                 </div>
 
+                {/* High School Section Stays Same */}
                 {isHighSchool && (
                     <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 space-y-4">
-                        <div className="flex items-center space-x-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest"><HiOutlineAcademicCap className="w-5 h-5" /><span>Stream & Subjects Selection</span></div>
+                        <div className="flex items-center space-x-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest"><HiOutlineAcademicCap className="w-5 h-5" /><span>Stream & Subjects</span></div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <select name="stream" value={formData.stream} onChange={handleChange} className="p-2 bg-white rounded-xl ring-1 ring-indigo-200 font-bold text-xs">
                                 <option value="">Stream</option>
