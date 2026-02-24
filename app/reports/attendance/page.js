@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../firebase/config';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { 
     HiOutlineCalendar, 
     HiOutlineClipboardList, 
@@ -19,16 +19,7 @@ const getMonthDetails = (year, month) => {
     const lastDay = new Date(year, month, 0);
     const daysInMonth = lastDay.getDate();
     
-    const format = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    };
-
     return {
-        firstDate: format(firstDay),
-        lastDate: format(lastDay),
         daysInMonth,
         year,
         month
@@ -44,7 +35,7 @@ export default function MonthlyAttendanceReport() {
     const [reportData, setReportData] = useState([]);
     const [showOnlyDummy, setShowOnlyDummy] = useState(false);
 
-    const { year, month, daysInMonth, firstDate, lastDate } = (() => {
+    const { year, month, daysInMonth } = (() => {
         const [yearStr, monthStr] = selectedMonthYear.split('-');
         return getMonthDetails(parseInt(yearStr), parseInt(monthStr));
     })();
@@ -74,52 +65,49 @@ export default function MonthlyAttendanceReport() {
         }
 
         try {
-            // 1. Fetch ALL students for the session to avoid index requirement
+            // 1. Fetch Students
             const studentsRef = collection(db, 'sessions', currentSession, 'students');
             const studentSnapshot = await getDocs(studentsRef);
             
-            const studentsList = studentSnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(student => {
-                    // Match class (handle both String and Number)
-                    const matchesClass = String(student.grade) === String(selectedClass);
-                    
-                    // Logic for Normal vs Dummy
-                    let matchesType = false;
-                    if (showOnlyDummy) {
-                        matchesType = student.isDummy === true;
-                    } else {
-                        // NORMAL: Show if isDummy is false OR if the field is missing/undefined
-                        matchesType = student.isDummy === false || student.isDummy === undefined;
-                    }
-                    return matchesClass && matchesType;
-                })
-                .sort((a, b) => (Number(a.srNo) || 0) - (Number(b.srNo) || 0));
+           const studentsList = studentSnapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(student => {
+        const matchesClass = String(student.grade) === String(selectedClass);
+        let matchesType = showOnlyDummy ? student.isDummy === true : (student.isDummy === false || student.isDummy === undefined);
+        return matchesClass && matchesType;
+    })
+    // Updated Sort Logic for A-Z
+    .sort((a, b) => {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+            // 2. Fetch Attendance by generating Document IDs: {date}_{class}
+            const dailyRecords = [];
+            const attendancePromises = [];
 
-            if (studentsList.length === 0) {
-                setReportData([]);
-                setLoading(false);
-                return;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const docId = `${dateStr}_${selectedClass}`;
+                const docRef = doc(db, 'sessions', currentSession, 'attendance', docId);
+                attendancePromises.push(getDoc(docRef));
             }
 
-            // 2. Fetch Attendance (filter date range)
-            const attendanceRef = collection(db, 'sessions', currentSession, 'attendance'); 
-            const attendanceQuery = query(
-                attendanceRef,
-                where('grade', '==', selectedClass),
-                where('date', '>=', firstDate),
-                where('date', '<=', lastDate)
-            );
+            const snapshots = await Promise.all(attendancePromises);
             
-            const attendanceSnapshot = await getDocs(attendanceQuery);
-            
-            // Filter attendance records locally for Dummy status to avoid index errors
-            const dailyRecords = attendanceSnapshot.docs
-                .map(doc => doc.data())
-                .filter(record => {
-                    const isRecordDummy = record.isDummyRecord === true;
-                    return showOnlyDummy ? isRecordDummy : !isRecordDummy;
-                });
+            snapshots.forEach((snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    // Local filter for dummy records if you have that field
+                    const isRecordDummy = data.isDummyRecord === true;
+                    if (showOnlyDummy ? isRecordDummy : !isRecordDummy) {
+                        dailyRecords.push({
+                            date: snap.id.split('_')[0], // Extract date from ID
+                            records: data.records || {}
+                        });
+                    }
+                }
+            });
 
             // 3. Map Data to Students
             const studentMap = studentsList.reduce((acc, s) => {
@@ -133,9 +121,9 @@ export default function MonthlyAttendanceReport() {
 
             dailyRecords.forEach(record => {
                 const date = record.date;
-                Object.entries(record.records || {}).forEach(([sId, status]) => {
+                Object.entries(record.records).forEach(([sId, status]) => {
                     if (studentMap[sId]) {
-                        const char = status.charAt(0).toUpperCase();
+                        const char = String(status).charAt(0).toUpperCase();
                         studentMap[sId].attendanceDays[date] = char;
                         if (['P', 'A', 'L'].includes(char)) {
                             studentMap[sId].summary[char]++;
@@ -150,7 +138,7 @@ export default function MonthlyAttendanceReport() {
         } finally {
             setLoading(false);
         }
-    }, [selectedClass, firstDate, lastDate, syncGlobalSession, showOnlyDummy]);
+    }, [selectedClass, selectedMonthYear, syncGlobalSession, showOnlyDummy, year, month, daysInMonth]);
 
     useEffect(() => {
         generateReport();
@@ -193,7 +181,6 @@ export default function MonthlyAttendanceReport() {
                 </div>
 
                 <div className="flex flex-wrap gap-3 items-center">
-                    {/* TOGGLE */}
                     <button 
                         onClick={() => setShowOnlyDummy(!showOnlyDummy)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all font-black text-xs uppercase tracking-widest ${

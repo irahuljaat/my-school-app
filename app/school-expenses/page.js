@@ -27,7 +27,6 @@ const formatDate = (dateInput) => {
 
 export default function SchoolExpensePortal() {
     const [loading, setLoading] = useState(true);
-    // Dynamic sessions state
     const [availableSessions, setAvailableSessions] = useState([]);
     const [activeSession, setActiveSession] = useState(""); 
     
@@ -43,13 +42,11 @@ export default function SchoolExpensePortal() {
     const [note, setNote] = useState("");
 
     // 1. DYNAMIC SESSION LISTENER
-    // This connects your Expense Portal to the Dashboard's session management
     useEffect(() => {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
                 setAvailableSessions(data.sessions || ["2025-26"]);
-                // Only set activeSession if it hasn't been manually changed by the user in this screen
                 if (!activeSession) {
                     setActiveSession(data.activeSession);
                 }
@@ -62,7 +59,7 @@ export default function SchoolExpensePortal() {
         if (!activeSession) return;
         setLoading(true);
         try {
-            // 1. FETCH TEACHERS MASTER DATA
+            // 1. TEACHERS DATA
             const teacherSnap = await getDocs(collection(db, 'teachers'));
             const teacherMap = {};
             teacherSnap.docs.forEach(d => {
@@ -71,21 +68,19 @@ export default function SchoolExpensePortal() {
                 teacherMap[d.id] = Number(cleanSalary);
             });
 
-            // 2. FEES: Filtered by activeSession path
+            // 2. FEES (Filtered by session path)
             const feeSnap = await getDocs(query(collectionGroup(db, 'feePayments')));
             const feeList = feeSnap.docs
                 .filter(d => d.ref.path.includes(activeSession))
                 .map(d => ({
                     id: d.id, source: 'fees', type: 'Income', category: 'Student Fee',
-                    amount: Number(d.data().amount || 0),
-                    date: d.data().createdAt,
-                    note: `Student Fee: ${d.data().name || 'Student'}`
+                    amount: Number(d.data().paidAmount || 0),
+                    date: d.data().createdAt || Timestamp.now(),
+                    note: `Student Fee: ${d.data().studentName || 'Student'}`
                 }));
 
-            // 3. SALARIES: Matching payment status with teacher's master salary
+            // 3. SALARIES (Filtered by academic year logic)
             const salarySnap = await getDocs(collection(db, 'salaryPayments'));
-            
-            // Logic to determine session date range
             const [sYear, eYearShort] = activeSession.split('-').map(v => v.trim());
             const sessionStartYear = Number(sYear);
             const sessionEndYear = eYearShort ? Number(`20${eYearShort}`) : sessionStartYear + 1;
@@ -96,27 +91,21 @@ export default function SchoolExpensePortal() {
                     const my = data.monthYear; 
                     const status = (data.status || "").toLowerCase().trim();
                     if (!my || status !== "paid") return false;
-
                     const [y, m] = my.split('-').map(Number);
-                    // Academic year April to March
                     return (y === sessionStartYear && m >= 4) || (y === sessionEndYear && m <= 3);
                 })
                 .map(d => {
                     const data = d.data();
-                    const teacherId = data.teacherId; 
-                    const masterSalary = teacherMap[teacherId] || 0;
-                    const paymentAmount = Number(data.amount || 0);
-
                     return {
                         id: d.id, source: 'salary', type: 'Expense', category: 'Teacher Salary',
-                        amount: paymentAmount > 0 ? paymentAmount : masterSalary,
+                        amount: Number(data.amount || 0),
                         date: data.paymentDate || data.createdAt || Timestamp.now(),
                         note: `${data.teacherName || 'Staff'} - ${data.monthYear}`
                     };
                 });
 
-            // 4. MANUAL ENTRIES: Filtered by current session field
-            const manualSnap = await getDocs(query(collection(db, 'accounts'), where('session', '==', activeSession)));
+            // 4. MANUAL ENTRIES (Updated to: sessions > {activeSession} > accounts)
+            const manualSnap = await getDocs(collection(db, 'sessions', activeSession, 'accounts'));
             const manualList = manualSnap.docs.map(d => ({ id: d.id, source: 'manual', ...d.data() }));
 
             setFeeTransactions(feeList);
@@ -162,7 +151,6 @@ export default function SchoolExpensePortal() {
 
     return (
         <div className="min-h-screen bg-[#fafafa] p-4 md:p-10 text-slate-900 font-sans">
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
                 <div className="text-center md:text-left">
                     <h1 className="text-4xl font-black italic tracking-tighter uppercase text-slate-800">School Ledger</h1>
@@ -176,7 +164,6 @@ export default function SchoolExpensePortal() {
                 </div>
                 
                 <div className="flex gap-3 w-full md:w-auto">
-                    {/* DYNAMIC DROPDOWN */}
                     <select 
                         value={activeSession} 
                         onChange={(e) => setActiveSession(e.target.value)} 
@@ -194,7 +181,6 @@ export default function SchoolExpensePortal() {
                 </div>
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
                 <StatCard label="Total Income" val={stats.inc} color="text-emerald-600" />
                 <StatCard label="Teacher Salaries" val={stats.sal} color="text-rose-600" />
@@ -205,7 +191,6 @@ export default function SchoolExpensePortal() {
                 </div>
             </div>
 
-            {/* Transaction Table */}
             <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-50 overflow-hidden">
                 <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
                     <h2 className="font-black text-[10px] uppercase tracking-widest text-slate-400">Transaction History</h2>
@@ -241,7 +226,7 @@ export default function SchoolExpensePortal() {
                                     </td>
                                     <td className="px-10 py-6 text-center">
                                         {t.source === 'manual' ? (
-                                            <button onClick={() => deleteDoc(doc(db, 'accounts', t.id)).then(fetchData)} className="text-slate-200 hover:text-rose-600 transition-colors"><HiTrash className="mx-auto w-5 h-5"/></button>
+                                            <button onClick={() => deleteDoc(doc(db, 'sessions', activeSession, 'accounts', t.id)).then(fetchData)} className="text-slate-200 hover:text-rose-600 transition-colors"><HiTrash className="mx-auto w-5 h-5"/></button>
                                         ) : (
                                             t.source === 'fees' ? <HiAcademicCap className="text-indigo-300 mx-auto w-6 h-6"/> : <HiUserGroup className="text-orange-200 mx-auto w-6 h-6"/>
                                         )}
@@ -253,7 +238,6 @@ export default function SchoolExpensePortal() {
                 </div>
             </div>
 
-            {/* Modal for adding Entry */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[3rem] p-10 w-full max-w-md shadow-2xl">
@@ -261,7 +245,7 @@ export default function SchoolExpensePortal() {
                             <h3 className="text-2xl font-black uppercase italic tracking-tighter">Manual Entry</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-300 hover:text-rose-500 transition"><HiX className="w-8 h-8"/></button>
                         </div>
-                        <p className="text-[10px] font-black text-indigo-600 mb-4 uppercase tracking-[0.2em]">Adding to {activeSession}</p>
+                        <p className="text-[10px] font-black text-indigo-600 mb-4 uppercase tracking-[0.2em]">Adding to Session {activeSession}</p>
                         <div className="flex bg-slate-50 p-1 rounded-[1.5rem] mb-6">
                             <button onClick={() => setEntryType("Expense")} className={`flex-1 py-4 rounded-[1.2rem] font-black text-[9px] tracking-widest ${entryType === 'Expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-300'}`}>EXPENSE</button>
                             <button onClick={() => setEntryType("Income")} className={`flex-1 py-4 rounded-[1.2rem] font-black text-[9px] tracking-widest ${entryType === 'Income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-300'}`}>INCOME</button>
@@ -270,13 +254,14 @@ export default function SchoolExpensePortal() {
                         <input type="text" placeholder="Entry Details" className="w-full p-5 bg-slate-50 border border-transparent focus:border-indigo-500 rounded-3xl mb-6 font-bold outline-none transition-all" value={note} onChange={e => setNote(e.target.value)}/>
                         <button className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] tracking-widest uppercase shadow-xl hover:bg-indigo-600 transition-all" onClick={async () => {
                             if(!amount) return;
-                            await setDoc(doc(collection(db, 'accounts')), { 
+                            // Updated path to sessions > activeSession > accounts
+                            const manualRef = doc(collection(db, 'sessions', activeSession, 'accounts'));
+                            await setDoc(manualRef, { 
                                 type: entryType, 
                                 amount: Number(amount), 
                                 note, 
-                                session: activeSession, 
                                 date: Timestamp.now(), 
-                                category: 'Misc' 
+                                category: note 
                             });
                             setIsModalOpen(false); setAmount(""); setNote(""); fetchData();
                         }}>Confirm Transaction</button>
