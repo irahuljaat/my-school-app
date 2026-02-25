@@ -9,7 +9,8 @@ import {
     HiOutlinePencil, 
     HiOutlineChartBar,
     HiChevronRight,
-    HiOutlineDatabase
+    HiOutlineDatabase,
+    HiOutlineEye // Added for Result Release
 } from 'react-icons/hi';
 
 // --- Components ---
@@ -17,19 +18,20 @@ import ExamDefinitionAndAssignment from '../components/ExamDefinitionAndAssignme
 import TimeTableCreator from '../components/TimeTableCreator'; 
 import MarksEntry from '../components/MarkEntry';               
 import DocumentGenerator from '../components/DocumentSelector'; 
+import ResultReleasePortal from '../components/ResultReleasePortal.jsx'; // NEW COMPONENT
 
 const VIEWS = {
     ASSIGNMENT: { id: 'ASSIGNMENT', label: 'Define & Assign', icon: HiOutlineDocumentAdd, color: 'purple' },
     TIMETABLE: { id: 'TIMETABLE', label: 'Time Table', icon: HiOutlineClock, color: 'amber' },
     MARKS_ENTRY: { id: 'MARKS_ENTRY', label: 'Marks Entry', icon: HiOutlinePencil, color: 'emerald' },
     GENERATE: { id: 'GENERATE', label: 'Finalize & Print', icon: HiOutlineChartBar, color: 'indigo' },
+    RELEASE: { id: 'RELEASE', label: 'Result Control', icon: HiOutlineEye, color: 'rose' }, // NEW VIEW
 };
 
 function ExamManagementPage() {
     const [currentView, setCurrentView] = useState(VIEWS.ASSIGNMENT.id);
     const [activeSession, setActiveSession] = useState(null);
 
-    // Fetch the active session from global config
     useEffect(() => {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (docSnap) => {
             if (docSnap.exists()) {
@@ -40,7 +42,6 @@ function ExamManagementPage() {
     }, []);
 
     const renderContent = () => {
-        // We pass the activeSession prop to children so they know where to save/fetch data
         switch (currentView) {
             case VIEWS.TIMETABLE.id: 
                 return <TimeTableCreator isModal={false} activeSession={activeSession} />; 
@@ -48,6 +49,8 @@ function ExamManagementPage() {
                 return <MarksEntry activeSession={activeSession} />;
             case VIEWS.GENERATE.id: 
                 return <DocumentGenerator activeSession={activeSession} />;
+            case VIEWS.RELEASE.id: 
+                return <ResultReleasePortal activeSession={activeSession} />; // RENDER NEW COMPONENT
             default: 
                 return <ExamDefinitionAndAssignment activeSession={activeSession} />;
         }
@@ -55,7 +58,6 @@ function ExamManagementPage() {
 
     return (
         <div className="min-h-screen bg-[#f8fafc] pb-20">
-            {/* Elegant Top Header */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -70,7 +72,6 @@ function ExamManagementPage() {
                         </div>
                     </div>
 
-                    {/* Progress Stepper Navigation */}
                     <nav className="flex items-center bg-slate-100 p-1.5 rounded-2xl overflow-x-auto">
                         {Object.values(VIEWS).map((view, index) => {
                             const Icon = view.icon;
@@ -98,7 +99,6 @@ function ExamManagementPage() {
                 </div>
             </div>
 
-            {/* Sub-Header Context */}
             <div className="max-w-7xl mx-auto px-6 mt-8">
                 <div className="flex items-center space-x-3 mb-6">
                     <div className={`p-2 rounded-lg bg-indigo-50 text-indigo-600`}>
@@ -111,11 +111,11 @@ function ExamManagementPage() {
                             {currentView === 'TIMETABLE' && "Schedule dates and times for each subject."}
                             {currentView === 'MARKS_ENTRY' && "Securely input student marks and remarks."}
                             {currentView === 'GENERATE' && "Preview and batch print official marksheets."}
+                            {currentView === 'RELEASE' && "Control online visibility of student results."}
                         </p>
                     </div>
                 </div>
 
-                {/* Main Component Injection Area */}
                 <main className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-100 min-h-[600px] overflow-hidden">
                     {!activeSession ? (
                         <div className="flex flex-col items-center justify-center h-[600px] text-slate-400 animate-pulse">
@@ -129,12 +129,6 @@ function ExamManagementPage() {
                     )}
                 </main>
             </div>
-            
-            <footer className="max-w-7xl mx-auto px-6 mt-8 flex justify-end">
-                <div className="bg-slate-800 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-tighter opacity-50">
-                    System Status: Session-Isolated & Cloud-Synced
-                </div>
-            </footer>
         </div>
     );
 }
