@@ -1,5 +1,3 @@
-// tailwind.config.js
-
 /** @type {import('tailwindcss').Config} */
 const colors = require('tailwindcss/colors')
 
@@ -10,36 +8,38 @@ module.exports = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    // --- THIS BLOCK COMPLETELY OVERRIDES THE PROBLEM STYLES ---
+    // Keep your functional overrides for Marksheet/PDF compatibility
     colors: {
-      // Keep standard functional colors 
       inherit: colors.inherit,
       current: colors.current,
       transparent: colors.transparent,
-      black: colors.black,
-      white: colors.white,
-
-      // Manually redefine primary colors using safe RGB/Hex values
-      // This ensures html2canvas-compatible values for all shades.
-      
-      // Gray Scale (Used in Marksheet/Admit Card)
-      gray: colors.zinc, // Use a neutral scale like zinc as it's often simpler
-      
-      // Red Scale
+      black: '#000000',
+      white: '#ffffff',
+      gray: colors.zinc, 
       red: colors.red,
-      
-      // Green Scale
       green: colors.green,
-      
-      // Blue Scale
       blue: colors.blue,
-
-      // Add any other specific colors you use (e.g., yellow, indigo)
       yellow: colors.yellow,
-      indigo: colors.indigo,
-      // ... and so on for any other colors used.
     },
-    // End of colors override
+    extend: {
+      colors: {
+        pallikoodam: {
+          pink: '#FF4F7B',   // Primary Theme Color
+          yellow: '#FFAE00', // Secondary
+          blue: '#1ABAD6',   // Information
+          green: '#82C232',  // Success
+          darkBlue: '#123367', // Footer/Headings
+          bgLight: '#F7F1EB', // Cream background
+        }
+      },
+      borderRadius: {
+        'kids': '40px', // Large soft corners
+      },
+      animation: {
+        'slow-bounce': 'bounce 3s infinite',
+        'spin-slow': 'spin 8s linear infinite',
+      }
+    },
   },
   plugins: [],
 }
