@@ -104,7 +104,7 @@ const calculateSalarySlipData = (teacher) => {
     const epf = grossSalary * EPF_RATE;
     const tds = grossSalary * TDS_RATE;
     const deductions = epf + tds; 
-    const netSalary = grossSalary - deductions;
+    const netSalary = grossSalary;
 
     return {
         ...teacher,

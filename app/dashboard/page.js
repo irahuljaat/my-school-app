@@ -78,14 +78,19 @@ export default function DashboardPage() {
 
     const handleMigrateAndPromote = async () => {
         if (!targetMigrationSession) return;
-        if (!window.confirm(`MIGRATE TO ${targetMigrationSession}?`)) return;
+        if (!window.confirm(`MIGRATE ALL STUDENTS TO ${targetMigrationSession}?`)) return;
         setIsMigrating(true);
+        
         try {
             const batch = writeBatch(db);
+            const timestamp = Date.now();
+
+            // Fetch fee structures to calculate current session balance
             const feeStructSnap = await getDocs(collection(db, 'sessions', currentSession, 'studentFeeStructures'));
             const classFees = {};
             feeStructSnap.forEach(doc => { classFees[doc.id] = Number(doc.data().totalFee || 0); });
 
+            // Fetch payments to calculate balance
             const paymentSnap = await getDocs(collection(db, 'sessions', currentSession, 'feePayments'));
             const studentPayments = {};
             paymentSnap.forEach(doc => {
@@ -95,24 +100,46 @@ export default function DashboardPage() {
             });
 
             const sSnap = await getDocs(collection(db, 'sessions', currentSession, 'students'));
+            
             sSnap.docs.forEach(d => {
                 const data = d.data();
                 const nextGrade = CLASS_PROMOTION_MAP[String(data.grade)] || data.grade;
-                const balanceToCarry = (classFees[data.grade] || 0 + Number(data.previouslyDue || 0)) - (studentPayments[d.id] || 0);
+                
+                // Calculate dues: (Current Class Fee + Old Arrears) - Total Paid this session
+                const currentTotalFee = (classFees[data.grade] || 0);
+                const currentPreviouslyDue = Number(data.previouslyDue || 0);
+                const totalPaidThisYear = (studentPayments[d.id] || 0);
+                const balanceToCarry = (currentTotalFee + currentPreviouslyDue) - totalPaidThisYear;
 
-                batch.set(doc(db, 'sessions', targetMigrationSession, 'students', d.id), {
+                // --- GENERATING THE NEW ID ---
+                // Format: S{SRNO}_{CLASS}_{TIMESTAMP}
+                const srNo = data.srNo || data.scholarNo || "NA";
+                const newStudentId = `S${srNo}_${nextGrade}_${timestamp}`;
+
+                const newStudentRef = doc(db, 'sessions', targetMigrationSession, 'students', newStudentId);
+
+                batch.set(newStudentRef, {
                     ...data,
+                    id: newStudentId, // Update internal ID field
                     grade: nextGrade,
                     migratedFrom: currentSession,
                     previouslyDue: balanceToCarry > 0 ? balanceToCarry : 0, 
-                    paidAmount: 0, 
+                    paidAmount: 0, // Reset paid amount for the new session
                 });
             });
 
             await batch.commit();
+            
+            // Set the new session as active
             await updateDoc(doc(db, 'config', 'settings'), { activeSession: targetMigrationSession });
-            alert("Promotion Successful!");
-        } catch (e) { alert(e.message); } finally { setIsMigrating(false); }
+            
+            alert(`Migration to ${targetMigrationSession} completed successfully with updated Class IDs.`);
+        } catch (e) { 
+            console.error(e);
+            alert("Migration Error: " + e.message); 
+        } finally { 
+            setIsMigrating(false); 
+        }
     };
 
     if (loading) return <div className="h-screen flex items-center justify-center font-black animate-pulse text-indigo-600">LOADING...</div>;
@@ -153,7 +180,9 @@ export default function DashboardPage() {
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl shrink-0"><HiOutlineTrendingUp size={24}/></div>
                         <div>
                             <h3 className="font-black text-slate-800 uppercase text-xs md:text-sm">Promotion Engine</h3>
-                            <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide leading-relaxed">Promote students and carry forward dues.</p>
+                            <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide leading-relaxed">
+                                Automatically updates Class IDs and carries over dues.
+                            </p>
                         </div>
                     </div>
                     
@@ -163,7 +192,7 @@ export default function DashboardPage() {
                             onChange={(e) => setTargetMigrationSession(e.target.value)} 
                             className="w-full sm:w-48 bg-slate-50 border p-3 md:p-4 rounded-xl text-[10px] font-black uppercase outline-none focus:border-indigo-500"
                         >
-                            <option value="">Next Year...</option>
+                            <option value="">Select Target Year...</option>
                             {allSessions.filter(s => s !== currentSession).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <button 
@@ -171,7 +200,7 @@ export default function DashboardPage() {
                             disabled={isMigrating || !targetMigrationSession} 
                             className="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 md:py-4 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-30 hover:shadow-lg transition-all"
                         >
-                            {isMigrating ? 'Migrating...' : 'Start'}
+                            {isMigrating ? 'Migrating...' : 'Start Promotion'}
                         </button>
                     </div>
                 </div>
@@ -187,7 +216,7 @@ export default function DashboardPage() {
             {/* New Session Modal */}
             {showNewSessionModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-                    <div className="bg-white p-6 md:p-10 rounded-2xl md:rounded-[3rem] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="bg-white p-6 md:p-10 rounded-2xl md:rounded-[3rem] w-full max-w-sm shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">New Session</h3>
                             <button onClick={() => setShowNewSessionModal(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full"><HiX/></button>
@@ -206,7 +235,6 @@ export default function DashboardPage() {
     );
 }
 
-// Sub-component for Stats to keep code clean
 const StatCard = ({ icon: Icon, label, value, color, textColor = "text-slate-400", border = "border-slate-100" }) => (
     <div className={`bg-white p-5 md:p-6 rounded-2xl md:rounded-[2.5rem] shadow-sm border ${border} flex items-center gap-4 md:gap-5`}>
         <div className={`w-12 h-12 md:w-14 md:h-14 ${color} rounded-xl md:rounded-2xl flex items-center justify-center text-white shrink-0`}>

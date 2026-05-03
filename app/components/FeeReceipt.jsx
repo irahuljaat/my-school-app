@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { HiPrinter, HiX, HiCheck } from 'react-icons/hi';
 import { useReactToPrint } from 'react-to-print';
 
-const SCHOOL_LOGO_URL = "https://res.cloudinary.com/db6ssceun/image/upload/v1765522459/LOGO_2_w2spav.png";
+const SCHOOL_LOGO_URL = "https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png";
 const SCHOOL_NAME = "MVG PUBLIC SCHOOL";
 const SCHOOL_ADDRESS = "Shyopur, Pratap Nagar, Sanganer, Jaipur";
 const SCHOOL_CONTACT = "+0141-3152600, 9829018332";

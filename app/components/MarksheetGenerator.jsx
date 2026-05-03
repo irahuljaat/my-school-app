@@ -2,50 +2,66 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
-import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
-import { HiOutlineRefresh, HiOutlineChevronLeft, HiPrinter, HiOutlineDatabase } from 'react-icons/hi'; 
+import { collection, getDocs, doc, getDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { HiOutlineRefresh, HiOutlineChevronLeft, HiPrinter } from 'react-icons/hi'; 
 import MarksheetTemplate from './MarksheetTemplate';
 
-function MarksheetGenerator({ onBack, activeSession }) {
+function MarksheetGenerator({ onBack }) {
     const [exams, setExams] = useState([]);
     const [classes] = useState(['LKG','UKG','PREP' ,'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
     const [selectedExams, setSelectedExams] = useState([]); 
     const [selectedClass, setSelectedClass] = useState('');
     const [generatedData, setGeneratedData] = useState([]); 
     const [loading, setLoading] = useState(false);
+    const [activeSession, setActiveSession] = useState('');
 
+    // 1. Fetch Active Session from config/settings (based on image_4e9c78.png)
+    useEffect(() => {
+        const unsub = onSnapshot(doc(db, 'config', 'settings'), (docSnap) => {
+            if (docSnap.exists()) {
+                const session = docSnap.data().activeSession;
+                setActiveSession(session);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // 2. Fetch Exams for the active session
     useEffect(() => {
         const fetchExams = async () => {
             if (!activeSession) return;
-            const snap = await getDocs(collection(db, 'sessions', activeSession, 'exams'));
-            setExams(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            try {
+                const snap = await getDocs(collection(db, 'sessions', activeSession, 'exams'));
+                setExams(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            } catch (err) {
+                console.error("Error fetching exams:", err);
+            }
         };
         fetchExams();
     }, [activeSession]);
 
     const fetchData = async () => {
-        if (!selectedClass || selectedExams.length === 0) return;
+        if (!selectedClass || selectedExams.length === 0 || !activeSession) return;
         setLoading(true);
 
         try {
-            // 1. Fetch Students (A-Z approach)
             let sSnap = await getDocs(query(collection(db, 'sessions', activeSession, 'students'), where('grade', '==', selectedClass)));
             if (sSnap.empty) {
                 sSnap = await getDocs(query(collection(db, 'students'), where('grade', '==', selectedClass)));
             }
             
-            // 2. Fetch Exams Setup
             const examData = await Promise.all(selectedExams.map(async (examId) => {
                 const docId = `${examId}_${selectedClass}`;
                 const mSnap = await getDoc(doc(db, 'sessions', activeSession, 'examMarks', docId));
                 const aSnap = await getDoc(doc(db, 'sessions', activeSession, 'examAssignments', docId));
                 return {
-                    examId, examName: exams.find(e => e.id === examId)?.name || "Exam",
-                    marks: mSnap.data()?.marks || {}, subjects: aSnap.data()?.subjects || []
+                    examId, 
+                    examName: exams.find(e => e.id === examId)?.name || "Exam",
+                    marks: mSnap.data()?.marks || {}, 
+                    subjects: aSnap.data()?.subjects || []
                 };
             }));
 
-            // 3. Calculate Results for all students
             const results = sSnap.docs.map((sd) => {
                 const s = sd.data();
                 const sId = sd.id;
@@ -64,32 +80,40 @@ function MarksheetGenerator({ onBack, activeSession }) {
                 });
 
                 return {
-                    student: { ...s, id: sId, totalObtained: tObtained, totalMax: tMax, percentage: tMax > 0 ? ((tObtained/tMax)*100).toFixed(2) : 0 },
+                    student: { 
+                        ...s, 
+                        id: sId, 
+                        dob: s.dob ? s.dob.split('-').reverse().join('-') : '—',
+                        totalObtained: tObtained, 
+                        totalMax: tMax, 
+                        percentage: tMax > 0 ? ((tObtained / tMax) * 100).toFixed(2) : 0,
+                        attendance: s.totalWorkingDays > 0 ? `${s.presentCount || 0}/${s.totalWorkingDays}` : "—" 
+                    },
                     examResults: filteredExams
                 };
             });
 
-            // --- STEP A: RANK BY PERCENTAGE (Highest first) ---
             results.sort((a, b) => b.student.percentage - a.student.percentage);
             results.forEach((r, i) => r.student.classRank = i + 1);
-
-            // --- STEP B: SORT ALPHABETICALLY FOR PRINTING (A-Z) ---
-            results.sort((a, b) => (a.student.name || "").localeCompare(b.student.name || "", undefined, { sensitivity: 'base' }));
+            results.sort((a, b) => (a.student.name || "").localeCompare(b.student.name || ""));
 
             setGeneratedData(results);
-        } catch (e) { console.error(e); }
-        setLoading(false);
+        } catch (e) { 
+            console.error("Fetch Error:", e); 
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-6">
+        <div className="min-h-screen bg-slate-100 p-6 print:p-0 print:bg-white">
             <div className="max-w-5xl mx-auto no-print">
                 <div className="flex justify-between items-center mb-6">
                     <button onClick={onBack} className="text-slate-500 font-bold uppercase text-[10px] tracking-widest flex items-center gap-2">
                         <HiOutlineChevronLeft/> Back
                     </button>
                     <div className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest">
-                        Session {activeSession}
+                        Session {activeSession || 'Loading...'}
                     </div>
                 </div>
 
@@ -103,7 +127,7 @@ function MarksheetGenerator({ onBack, activeSession }) {
                     </div>
                     <div className="flex-1 min-w-[200px]">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Exams</label>
-                        <select multiple value={selectedExams} onChange={e=>setSelectedExams(Array.from(e.target.selectedOptions, o=>o.value))} className="w-full p-3 bg-slate-50 rounded-xl font-bold border-none outline-none ring-1 ring-slate-100 h-14">
+                        <select multiple value={selectedExams} onChange={e=>setSelectedExams(Array.from(e.target.selectedOptions, o=>o.value))} className="w-full p-3 bg-slate-50 rounded-xl font-bold border-none outline-none ring-1 ring-slate-100 h-24">
                             {exams.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
                     </div>
@@ -118,19 +142,36 @@ function MarksheetGenerator({ onBack, activeSession }) {
 
             <div id="print-area">
                 {generatedData.map((data, idx) => (
-                    <div key={idx} className="marksheet-page">
-                        <MarksheetTemplate student={data.student} examResults={data.examResults} />
+                    <div key={idx} className="marksheet-page-wrapper">
+                        <MarksheetTemplate student={data.student} examResults={data.examResults} activeSession={activeSession} />
                     </div>
                 ))}
             </div>
 
             <style jsx global>{`
-                @media screen { .marksheet-page { background: white; width: 210mm; margin: 0 auto 30px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.05); } }
+                @media screen {
+                    .marksheet-page-wrapper {
+                        background: white;
+                        width: 210mm;
+                        min-height: 297mm;
+                        margin: 0 auto 40px auto;
+                        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+                    }
+                }
                 @media print {
+                    body * { visibility: hidden !important; }
+                    #print-area, #print-area * { visibility: visible !important; }
+                    #print-area { position: absolute; left: 0; top: 0; width: 100%; }
                     .no-print { display: none !important; }
-                    body { background: white !important; margin: 0; padding: 0; }
-                    #print-area { visibility: visible; width: 100%; }
-                    .marksheet-page { width: 210mm; height: 297mm; page-break-after: always !important; }
+                    .marksheet-page-wrapper {
+                        width: 210mm;
+                        height: 297mm;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                        display: block !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
                 }
                 @page { size: A4 portrait; margin: 0; }
             `}</style>

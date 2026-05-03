@@ -5,8 +5,8 @@ import { HiX, HiPrinter } from 'react-icons/hi';
 // 🛑 Import the new content component
 import SalaryReceiptContent from './SalaryReceiptContent'; 
 
-const SCHOOL_NAME = "School Name"; // Should match the main header
-const SCHOOL_ADDRESS = "Address"; 
+const SCHOOL_NAME = "MVG PUBLIC SENIOR SECONDARY SCHOOL"; // Should match the main header
+const SCHOOL_ADDRESS = "Sheopur, Pratap Nagar, Sanganer, Jaipur "; 
 
 function SalaryBatchPrint({ slipDataList, onClose }) {
     const contentRef = useRef(null);
