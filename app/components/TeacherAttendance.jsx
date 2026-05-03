@@ -2,102 +2,58 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HiCalendar, HiClock, HiCheckCircle, HiXCircle, HiSave } from 'react-icons/hi';
+import { 
+    HiOutlineCalendar, 
+    HiOutlineSave, 
+    HiOutlineCheckCircle, 
+    HiOutlineXCircle,
+    HiOutlineClock
+} from 'react-icons/hi';
 import { 
     collection, 
     getDocs, 
     doc, 
     setDoc, 
     query, 
-    where, 
-    getFirestore 
+    where 
 } from 'firebase/firestore';
 import { db } from '../firebase/config'; 
+import Image from 'next/image';
 
+// --- STYLING CONSTANTS ---
+const TEXT_NAVY = "#303972";
+const TEXT_MUTED = "#A0A3BD";
 
-
-// --- HELPER FUNCTION TO REMOVE UNDEFINED ---
-/**
- * Removes all properties with the value 'undefined' from an object.
- * This is CRITICAL for Firestore, which does not allow 'undefined' values.
- */
+// --- HELPER FUNCTIONS ---
 const cleanDataForFirestore = (data) => {
     return Object.fromEntries(
         Object.entries(data).filter(([, value]) => value !== undefined)
     );
 };
 
-// --- FIRESTORE INTEGRATION LOGIC ---
-
-const fetchTeacherList = async () => {
-    try {
-        const teachersCollection = collection(db, 'teachers');
-        // Filter for only 'Active' teachers for daily attendance marking
-        const q = query(teachersCollection, where('status', '==', 'Active')); 
-        const teacherSnapshot = await getDocs(q); 
-        
-        const teacherList = teacherSnapshot.docs.map(doc => ({
-            id: doc.id, 
-            ...doc.data() 
-        }));
-        return teacherList;
-    } catch (error) {
-        console.error("Firestore Teacher Fetch Error:", error);
-        throw new Error(`Failed to fetch active teacher data: ${error.message}`);
-    }
-};
-
-const fetchAttendanceByDate = async (date) => {
-    try {
-        const dateDocRef = doc(db, 'teacherAttendance', date);
-        const recordsCollectionRef = collection(dateDocRef, 'records');
-        
-        const attendanceSnapshot = await getDocs(recordsCollectionRef);
-        
-        const records = {};
-        attendanceSnapshot.docs.forEach(doc => {
-            records[doc.id] = doc.data();
-        });
-        return records;
-    } catch (error) {
-        console.error("Firestore Attendance Fetch Error:", error);
-        throw new Error(`Failed to fetch attendance for ${date}: ${error.message}`);
-    }
-};
-
-const saveAttendance = async (teacherId, date, record) => {
-    // 🛑 FIX APPLIED HERE: Clean the record before saving!
-    const cleanedRecord = cleanDataForFirestore(record);
-    
-    if (Object.keys(cleanedRecord).length === 0) {
-        console.warn(`Skipping save for ${teacherId}: Record is empty after cleaning.`);
-        return { success: false, message: 'Skipped empty record.' };
-    }
-    
-    try {
-        const recordDocRef = doc(db, 'teacherAttendance', date, 'records', teacherId);
-        await setDoc(recordDocRef, cleanedRecord, { merge: true });
-        
-        return { success: true };
-    } catch (error) {
-        console.error("Firestore Save Error:", error);
-        throw new Error(`Failed to save attendance for ${teacherId} on ${date}: ${error.message}`);
-    }
-};
-// -----------------------------------------------------------------
-
 const formatDate = (date) => {
     const d = new Date(date);
     let month = '' + (d.getMonth() + 1);
     let day = '' + d.getDate();
     const year = d.getFullYear();
-
-    if (month.length < 2) 
-        month = '0' + month;
-    if (day.length < 2) 
-        day = '0' + day;
-
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
     return [year, month, day].join('-');
+};
+
+// --- FIRESTORE LOGIC ---
+const fetchTeacherList = async () => {
+    const q = query(collection(db, 'teachers'), where('status', '==', 'Active')); 
+    const snapshot = await getDocs(q); 
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+const fetchAttendanceByDate = async (date) => {
+    const recordsCollectionRef = collection(doc(db, 'teacherAttendance', date), 'records');
+    const snapshot = await getDocs(recordsCollectionRef);
+    const records = {};
+    snapshot.docs.forEach(doc => { records[doc.id] = doc.data(); });
+    return records;
 };
 
 function TeacherAttendance() {
@@ -110,284 +66,194 @@ function TeacherAttendance() {
 
     const isToday = selectedDate === today;
 
-    // Load Teacher List
     useEffect(() => {
-        const loadTeachers = async () => {
+        const loadInitialData = async () => {
             try {
+                setLoading(true);
                 const list = await fetchTeacherList();
                 setTeachers(list);
-            } catch (err) {
-                setMessage({ type: 'error', text: 'Failed to load teacher list. Check console for details.' });
-            }
-        };
-        loadTeachers();
-    }, []); 
-
-    // Load Attendance Records
-    useEffect(() => {
-        if (teachers.length === 0) {
-            if (!loading) setLoading(false);
-            return;
-        }
-
-        const loadAttendance = async () => {
-            setLoading(true);
-            setMessage(null);
-            try {
                 const records = await fetchAttendanceByDate(selectedDate);
                 
-                const initialData = {};
-                teachers.forEach(teacher => {
-                    initialData[teacher.id] = records[teacher.id] || { status: 'Pending' };
+                const mergedData = {};
+                list.forEach(t => {
+                    mergedData[t.id] = records[t.id] || { status: 'Pending' };
                 });
-                
-                setAttendanceData(initialData);
-
+                setAttendanceData(mergedData);
             } catch (err) {
-                console.error("Failed to load attendance:", err);
-                setMessage({ type: 'error', text: 'Could not load attendance data for the selected date.' });
+                setMessage({ type: 'error', text: 'Failed to sync with database.' });
             } finally {
                 setLoading(false);
             }
         };
+        loadInitialData();
+    }, [selectedDate]);
 
-        loadAttendance();
-    }, [selectedDate, teachers]);
-
-    // Handler for Marking Attendance
     const handleStatusChange = (teacherId, newStatus) => {
-        if (!isToday && !window.confirm("You are modifying a historical record. Are you sure?")) {
-            return;
-        }
+        if (!isToday && !window.confirm("Modifying historical data. Proceed?")) return;
         
         const now = new Date();
-        const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', ''); // Format HHMM (24h)
-
-        setAttendanceData(prev => {
-            const current = prev[teacherId] || {};
-            
-            let updatedRecord = { status: newStatus };
-
-            if (newStatus === 'Present') {
-                updatedRecord = { 
-                    ...current, 
-                    status: 'Present',
-                    timeIn: current.timeIn || currentTime, 
-                    timeOut: current.timeOut || '', // Set to empty string instead of undefined
-                    reason: '',                     // Set to empty string instead of undefined
-                };
-            } else if (newStatus === 'Absent') {
-                updatedRecord = { 
-                    ...current, 
-                    status: 'Absent', 
-                    timeIn: '', // Set to empty string
-                    timeOut: '', // Set to empty string
-                    reason: current.reason || '', 
-                };
-            } else {
-                updatedRecord = { status: 'Pending' }; 
-            }
-
-            // Ensure no fields are strictly 'undefined' in the state. 
-            // We use empty string '' for optional blank fields.
-            return { ...prev, [teacherId]: updatedRecord };
-        });
-    };
-
-    // Handler for Time/Reason changes
-    const handleDetailChange = (teacherId, field, value) => {
-        if (!isToday && !window.confirm("You are modifying a historical record. Are you sure?")) {
-            return;
-        }
+        const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }).replace(':', '');
 
         setAttendanceData(prev => ({
             ...prev,
-            [teacherId]: { ...prev[teacherId], [field]: value }
+            [teacherId]: newStatus === 'Present' 
+                ? { status: 'Present', timeIn: prev[teacherId]?.timeIn || currentTime, timeOut: '', reason: '' }
+                : newStatus === 'Absent'
+                ? { status: 'Absent', timeIn: '', timeOut: '', reason: prev[teacherId]?.reason || '' }
+                : { status: 'Pending' }
         }));
     };
-    
-    // --- Handler for Saving Today's Attendance ---
+
     const handleSaveAttendance = async () => {
         setLoading(true);
-        setMessage({ type: 'info', text: 'Saving attendance records...' });
+        setMessage({ type: 'info', text: 'Syncing records...' });
 
         try {
-            const recordsToSave = Object.entries(attendanceData).filter(([, record]) => 
-                record.status !== 'Pending' // Only save marked records
-            );
-
+            const recordsToSave = Object.entries(attendanceData).filter(([, r]) => r.status !== 'Pending');
             if (recordsToSave.length === 0) {
-                setMessage({ type: 'warning', text: 'No attendance marked yet to save.' });
-                setLoading(false);
+                setMessage({ type: 'warning', text: 'No records marked.' });
                 return;
             }
 
-            // Execute all save operations concurrently
-            const savePromises = recordsToSave.map(([teacherId, record]) => 
-                saveAttendance(teacherId, selectedDate, record)
-            );
-
-            await Promise.all(savePromises);
+            await Promise.all(recordsToSave.map(([id, record]) => {
+                const cleaned = cleanDataForFirestore(record);
+                return setDoc(doc(db, 'teacherAttendance', selectedDate, 'records', id), cleaned, { merge: true });
+            }));
             
-            setMessage({ type: 'success', text: 'Attendance saved successfully!' });
+            setMessage({ type: 'success', text: 'Attendance updated successfully!' });
         } catch (error) {
-            console.error("Save error:", error);
-            setMessage({ type: 'error', text: `Failed to save attendance records. ${error.message}` });
+            setMessage({ type: 'error', text: 'Save failed. Check permissions.' });
         } finally {
             setLoading(false);
         }
     };
 
-
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">Teacher Attendance Log</h2>
-
-            {/* --- Date Filter and Action --- */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-indigo-50 rounded-lg shadow-inner">
-                <div className="flex items-center space-x-3 mb-3 md:mb-0">
-                    <HiCalendar className="w-6 h-6 text-indigo-700" />
-                    <label htmlFor="attendance-date" className="font-semibold text-gray-700">Select Date:</label>
-                    <input
-                        type="date"
-                        id="attendance-date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="p-2 border border-indigo-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                        max={today} 
-                    />
+        <div className="space-y-8">
+            {/* Header with Date Selection */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div>
+                    <h2 className="text-xl font-bold" style={{ color: TEXT_NAVY }}>Daily Attendance</h2>
+                    <p className="text-xs font-medium" style={{ color: TEXT_MUTED }}>Mark and manage staff presence for {selectedDate === today ? 'Today' : selectedDate}</p>
                 </div>
                 
-                <button
-                    onClick={handleSaveAttendance}
-                    disabled={loading}
-                    className={`px-6 py-2 rounded-lg text-white font-semibold transition flex items-center ${
-                        loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-md'
-                    }`}
-                >
-                    <HiSave className="w-5 h-5 mr-2" />
-                    {loading ? 'Saving...' : `Save ${isToday ? "Today's" : "Selected Date's"} Attendance`}
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                        <HiOutlineCalendar className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: TEXT_MUTED }} />
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            max={today}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="pl-11 pr-4 py-2.5 bg-[#F8F9FD] border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-purple-200 transition-all"
+                            style={{ color: TEXT_NAVY }}
+                        />
+                    </div>
+                    <button
+                        onClick={handleSaveAttendance}
+                        disabled={loading}
+                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-purple-100 transition-all disabled:opacity-50"
+                    >
+                        <HiOutlineSave size={18} />
+                        {loading ? 'Processing...' : 'Save Records'}
+                    </button>
+                </div>
             </div>
-            
-            {/* Notification Bar */}
+
             {message && (
-                <div className={`p-3 rounded-md text-sm ${message.type === 'error' ? 'bg-red-100 text-red-700' : message.type === 'success' ? 'bg-green-100 text-green-700' : message.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>
+                <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider animate-in fade-in slide-in-from-top-2 ${
+                    message.type === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
+                }`}>
                     {message.text}
                 </div>
             )}
 
-            {loading && (
-                <div className="text-center py-6 text-lg text-indigo-600">
-                    Loading records...
-                </div>
-            )}
-            
-            {/* --- Attendance Table --- */}
-            {!loading && teachers.length > 0 && (
-                <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name (Teacher ID)</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Status</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time In (HH:MM)</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time Out (HH:MM)</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks / Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {teachers.map(teacher => {
-                                const record = attendanceData[teacher.id] || { status: 'Pending' };
-                                const statusColor = record.status === 'Present' ? 'text-green-600' : record.status === 'Absent' ? 'text-red-600' : 'text-gray-500';
-                                
-                                return (
-                                    <tr key={teacher.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {teacher.name} <span className="text-gray-500">({teacher.srNo})</span>
-                                        </td>
-                                        
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <div className="flex justify-center space-x-2">
-                                                <button 
-                                                    onClick={() => handleStatusChange(teacher.id, 'Present')}
-                                                    className={`p-1 rounded-full ${record.status === 'Present' ? 'bg-green-100 text-green-700' : 'text-gray-400 hover:text-green-500'} transition`}
-                                                    title="Mark Present"
-                                                    disabled={loading}
-                                                >
-                                                    <HiCheckCircle className="w-6 h-6" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleStatusChange(teacher.id, 'Absent')}
-                                                    className={`p-1 rounded-full ${record.status === 'Absent' ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:text-red-500'} transition`}
-                                                    title="Mark Absent"
-                                                    disabled={loading}
-                                                >
-                                                    <HiXCircle className="w-6 h-6" />
-                                                </button>
+            {/* Attendance Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-separate border-spacing-y-3">
+                    <thead>
+                        <tr className="text-[13px] font-bold" style={{ color: TEXT_NAVY }}>
+                            <th className="px-6 py-4">Educator</th>
+                            <th className="px-4 py-4 text-center">Status</th>
+                            <th className="px-4 py-4 text-center">Check-In</th>
+                            <th className="px-4 py-4 text-center">Check-Out</th>
+                            <th className="px-4 py-4">Remarks / Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-transparent">
+                        {teachers.map((teacher) => {
+                            const record = attendanceData[teacher.id] || { status: 'Pending' };
+                            return (
+                                <tr key={teacher.id} className="group hover:bg-[#F8F9FD] transition-all">
+                                    <td className="px-6 py-4 rounded-l-2xl bg-white border-y border-l border-transparent group-hover:border-slate-100">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200 shrink-0">
+                                                <Image src={teacher.imageUrl || 'https://via.placeholder.com/150'} alt="" fill className="object-cover" />
                                             </div>
-                                            <span className={`text-xs font-semibold mt-1 block ${statusColor}`}>
-                                                {record.status}
-                                            </span>
-                                        </td>
-                                        
-                                        {/* Time In */}
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            {record.status === 'Present' ? (
-                                                <input 
-                                                    type="time" 
-                                                    value={record.timeIn || ''} 
-                                                    onChange={(e) => handleDetailChange(teacher.id, 'timeIn', e.target.value)} 
-                                                    className="w-24 p-1 border rounded disabled:bg-gray-100"
-                                                    disabled={loading}
-                                                />
-                                            ) : (
-                                                <span className="text-gray-400">N/A</span>
-                                            )}
-                                        </td>
-                                        
-                                        {/* Time Out */}
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            {record.status === 'Present' ? (
-                                                <input 
-                                                    type="time" 
-                                                    value={record.timeOut || ''} 
-                                                    onChange={(e) => handleDetailChange(teacher.id, 'timeOut', e.target.value)} 
-                                                    className="w-24 p-1 border rounded disabled:bg-gray-100"
-                                                    disabled={loading}
-                                                />
-                                            ) : (
-                                                <span className="text-gray-400">N/A</span>
-                                            )}
-                                        </td>
-                                        
-                                        {/* Remarks/Reason */}
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {record.status === 'Absent' ? (
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Reason for Absence"
-                                                    value={record.reason || ''} 
-                                                    onChange={(e) => handleDetailChange(teacher.id, 'reason', e.target.value)} 
-                                                    className="w-full p-1 border rounded disabled:bg-gray-100"
-                                                    disabled={loading}
-                                                />
-                                            ) : (
-                                                <span className="text-gray-400">{record.status === 'Present' ? 'On duty' : '---'}</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-            {!loading && teachers.length === 0 && (
-                <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
-                    No active teachers found. Please add teachers in the 'Add New Teacher' section.
-                </div>
-            )}
+                                            <div>
+                                                <div className="font-bold text-sm" style={{ color: TEXT_NAVY }}>{teacher.name}</div>
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-purple-500">{teacher.srNo}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-4 py-4 bg-white border-y border-transparent group-hover:border-slate-100">
+                                        <div className="flex justify-center gap-2">
+                                            <button 
+                                                onClick={() => handleStatusChange(teacher.id, 'Present')}
+                                                className={`p-2 rounded-lg transition-all ${record.status === 'Present' ? 'bg-emerald-50 text-emerald-600 shadow-sm' : 'text-slate-300 hover:text-emerald-500'}`}
+                                            >
+                                                <HiOutlineCheckCircle size={22} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleStatusChange(teacher.id, 'Absent')}
+                                                className={`p-2 rounded-lg transition-all ${record.status === 'Absent' ? 'bg-rose-50 text-rose-600 shadow-sm' : 'text-slate-300 hover:text-rose-500'}`}
+                                            >
+                                                <HiOutlineXCircle size={22} />
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-4 py-4 bg-white border-y border-transparent group-hover:border-slate-100 text-center">
+                                        {record.status === 'Present' ? (
+                                            <input 
+                                                type="time" 
+                                                value={record.timeIn || ''} 
+                                                onChange={(e) => setAttendanceData(prev => ({...prev, [teacher.id]: {...prev[teacher.id], timeIn: e.target.value}}))}
+                                                className="text-xs font-bold p-1.5 bg-slate-50 border-none rounded-lg focus:ring-1 focus:ring-purple-200"
+                                                style={{ color: TEXT_NAVY }}
+                                            />
+                                        ) : <span className="text-[10px] font-bold text-slate-300">--:--</span>}
+                                    </td>
+
+                                    <td className="px-4 py-4 bg-white border-y border-transparent group-hover:border-slate-100 text-center">
+                                        {record.status === 'Present' ? (
+                                            <input 
+                                                type="time" 
+                                                value={record.timeOut || ''} 
+                                                onChange={(e) => setAttendanceData(prev => ({...prev, [teacher.id]: {...prev[teacher.id], timeOut: e.target.value}}))}
+                                                className="text-xs font-bold p-1.5 bg-slate-50 border-none rounded-lg focus:ring-1 focus:ring-purple-200"
+                                                style={{ color: TEXT_NAVY }}
+                                            />
+                                        ) : <span className="text-[10px] font-bold text-slate-300">--:--</span>}
+                                    </td>
+
+                                    <td className="px-4 py-4 rounded-r-2xl bg-white border-y border-r border-transparent group-hover:border-slate-100">
+                                        <input 
+                                            type="text"
+                                            placeholder={record.status === 'Absent' ? "Specify reason..." : "Remarks..."}
+                                            value={record.reason || ''}
+                                            onChange={(e) => setAttendanceData(prev => ({...prev, [teacher.id]: {...prev[teacher.id], reason: e.target.value}}))}
+                                            className="w-full text-xs bg-transparent border-none placeholder:text-slate-300 focus:ring-0"
+                                            style={{ color: TEXT_NAVY }}
+                                        />
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

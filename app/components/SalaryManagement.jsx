@@ -1,12 +1,16 @@
-// components/SalaryManagement.jsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HiCreditCard, HiPrinter, HiCheckCircle } from 'react-icons/hi';
-// 🛑 We only need SalaryBatchPrint now, as it handles both cases
+import { 
+    HiCreditCard, 
+    HiPrinter, 
+    HiCheckCircle, 
+    HiUserGroup, 
+    HiDotsVertical, 
+    HiCurrencyRupee,
+    HiCalendar
+} from 'react-icons/hi';
 import SalaryBatchPrint from './SalaryBatchPrint'; 
-
-// 🛑 IMPORTANT: Correct the path to your Firebase config file
 import { 
     collection, 
     getDocs, 
@@ -14,12 +18,9 @@ import {
     setDoc, 
     query, 
     where, 
-    getFirestore,
-    Timestamp
+    Timestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config'; 
-
-
 
 // --- HELPER FUNCTIONS (UNCHANGED) ---
 const getCurrentMonthYear = () => {
@@ -28,9 +29,11 @@ const getCurrentMonthYear = () => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
 };
+
 const getCurrentMonthDisplayName = () => {
     return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
 };
+
 // --- FIRESTORE INTEGRATION LOGIC (UNCHANGED) ---
 const fetchTeacherListWithSalary = async () => {
     try {
@@ -38,31 +41,29 @@ const fetchTeacherListWithSalary = async () => {
         const q = query(teachersCollection, where('status', '==', 'Active'));
         const teacherSnapshot = await getDocs(q); 
         
-        const teacherList = teacherSnapshot.docs.map(doc => {
+        return teacherSnapshot.docs.map(doc => {
             const data = doc.data();
             const rawSalary = data.grossSalary || data.baseSalary || data.salary; 
-
             return {
                 id: doc.id, 
                 name: data.name,
-                designation: data.designation || 'Staff',
+                designation: data.designation || 'Staff Member',
                 salary: parseFloat(rawSalary) || 0, 
                 bankAccount: data.bankAccount || 'N/A',
                 srNo: data.srNo || 'N/A', 
             };
         });
-        return teacherList;
     } catch (error) {
         console.error("Firestore Teacher Fetch Error:", error);
         throw new Error(`Failed to fetch teacher salary data: ${error.message}`);
     }
 };
+
 const fetchPaymentStatus = async (monthYear) => {
     try {
         const paymentsCollection = collection(db, 'salaryPayments');
         const q = query(paymentsCollection, where('monthYear', '==', monthYear));
         const paymentSnapshot = await getDocs(q);
-        
         const statusMap = {};
         paymentSnapshot.docs.forEach(doc => {
             const data = doc.data();
@@ -73,39 +74,33 @@ const fetchPaymentStatus = async (monthYear) => {
         });
         return statusMap;
     } catch (error) {
-        console.error("Firestore Payment Status Fetch Error:", error);
         return {}; 
     }
 };
+
 const savePaymentRecord = async (teacherId, teacherName, monthYear) => {
     try {
         const paymentsCollection = collection(db, 'salaryPayments');
         const paymentDocId = `${teacherId}_${monthYear}`; 
-        
         await setDoc(doc(paymentsCollection, paymentDocId), {
-            teacherId: teacherId,
-            teacherName: teacherName,
-            monthYear: monthYear,
+            teacherId,
+            teacherName,
+            monthYear,
             status: 'Paid',
             paymentDate: Timestamp.now(),
         });
-        
         return { success: true, paymentDate: new Date().toLocaleDateString() };
     } catch (error) {
-        console.error("Firestore Save Payment Error:", error);
         throw new Error(`Failed to mark salary as paid: ${error.message}`);
     }
 };
+
 const calculateSalarySlipData = (teacher) => {
     const grossSalary = teacher.salary; 
     const EPF_RATE = 0.05; 
     const TDS_RATE = 0.05; 
-    
     const epf = grossSalary * EPF_RATE;
     const tds = grossSalary * TDS_RATE;
-    const deductions = epf + tds; 
-    const netSalary = grossSalary;
-
     return {
         ...teacher,
         month: getCurrentMonthDisplayName(),
@@ -113,12 +108,10 @@ const calculateSalarySlipData = (teacher) => {
         grossSalary: grossSalary.toFixed(2),
         epf: epf.toFixed(2),
         tds: tds.toFixed(2),
-        totalDeductions: deductions.toFixed(2),
-        netSalary: netSalary.toFixed(2),
+        totalDeductions: (epf + tds).toFixed(2),
+        netSalary: grossSalary.toFixed(2),
     };
 };
-// -----------------------------------------------------------------
-
 
 function SalaryManagement() {
     const currentMonthYear = getCurrentMonthYear();
@@ -128,103 +121,69 @@ function SalaryManagement() {
     const [paymentStatus, setPaymentStatus] = useState({}); 
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState(null);
-
-    // 🛑 Streamlined Print State
     const [selectedTeacherIds, setSelectedTeacherIds] = useState(new Set());
     const [isPrintingModalOpen, setIsPrintingModalOpen] = useState(false);
-    const [slipsToPrint, setSlipsToPrint] = useState([]); // List of calculated slip data objects
-    
-    // --- Data Fetching Effect (UNCHANGED) ---
+    const [slipsToPrint, setSlipsToPrint] = useState([]);
+
     useEffect(() => {
         const loadSalaryData = async () => {
             setLoading(true);
-            setMessage(null);
             try {
                 const [teacherList, statusMap] = await Promise.all([
                     fetchTeacherListWithSalary(),
                     fetchPaymentStatus(currentMonthYear)
                 ]);
-                
                 setTeachers(teacherList);
                 setPaymentStatus(statusMap);
-
             } catch (err) {
-                console.error(err);
-                setMessage({ type: 'error', text: err.message || 'Failed to load salary data. Check network and Firebase rules.' });
+                setMessage({ type: 'error', text: err.message });
             } finally {
                 setLoading(false);
             }
         };
-
         loadSalaryData();
     }, [currentMonthYear]);
-
-    // --- Selection Handlers (UNCHANGED) ---
 
     const handleSelectTeacher = (teacherId, isChecked) => {
         setSelectedTeacherIds(prevIds => {
             const newIds = new Set(prevIds);
-            if (isChecked) {
-                newIds.add(teacherId);
-            } else {
-                newIds.delete(teacherId);
-            }
+            isChecked ? newIds.add(teacherId) : newIds.delete(teacherId);
             return newIds;
         });
     };
     
     const handleSelectAll = (isChecked) => {
-        if (isChecked) {
-            const allIds = new Set(teachers.map(t => t.id));
-            setSelectedTeacherIds(allIds);
-        } else {
-            setSelectedTeacherIds(new Set());
-        }
+        setSelectedTeacherIds(isChecked ? new Set(teachers.map(t => t.id)) : new Set());
     };
     
-    // --- Action Handlers ---
-
     const handleMarkPaid = async (teacherId, teacherName) => {
         setLoading(true);
-        setMessage({ type: 'info', text: `Marking ${teacherName}'s salary as Paid...` });
-        
         try {
             const result = await savePaymentRecord(teacherId, teacherName, currentMonthYear);
-            
             if (result.success) {
                 setPaymentStatus(prev => ({ 
                     ...prev, 
                     [teacherId]: { status: 'Paid', paymentDate: result.paymentDate } 
                 }));
-                setMessage({ type: 'success', text: `${teacherName}'s salary successfully marked as PAID for ${currentMonthName}.` });
+                setMessage({ type: 'success', text: `${teacherName}: Salary Paid.` });
             }
         } catch (error) {
-            console.error("Payment mark failed:", error);
-            setMessage({ type: 'error', text: `Failed to mark payment: ${error.message}` });
+            setMessage({ type: 'error', text: error.message });
         } finally {
             setLoading(false);
         }
     };
 
-    // 🛑 UPDATED: Handler for single receipt printing. Passes one teacher to the batch logic.
     const handleGenerateSingleReceipt = (teacher) => {
-        const slipData = calculateSalarySlipData(teacher);
-        setSlipsToPrint([slipData]); // Set the list to contain only this one slip
-        setIsPrintingModalOpen(true); // Open the batch print modal
+        setSlipsToPrint([calculateSalarySlipData(teacher)]);
+        setIsPrintingModalOpen(true);
     };
     
-    // 🛑 UPDATED: Handler for batch printing. Passes all selected teachers to the batch logic.
     const handleBatchPrint = () => {
-        if (selectedTeacherIds.size === 0) {
-            setMessage({ type: 'warning', text: 'Please select at least one teacher to print.' });
-            return;
-        }
-        
-        // Prepare data for selected teachers
+        if (selectedTeacherIds.size === 0) return;
         const selectedSlips = teachers
             .filter(t => selectedTeacherIds.has(t.id))
             .map(t => calculateSalarySlipData(t));
-            
         setSlipsToPrint(selectedSlips);
         setIsPrintingModalOpen(true);
     };
@@ -232,119 +191,139 @@ function SalaryManagement() {
     const isAllSelected = selectedTeacherIds.size === teachers.length && teachers.length > 0;
         
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">💰 Teacher Salary Management</h2>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+            {/* Header Section */}
+            <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h2 className="text-3xl font-bold text-[#303972] flex items-center gap-3">
+                        <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600">
+                            <HiCurrencyRupee size={28} />
+                        </div>
+                        Salary Management
+                    </h2>
+                    <div className="flex items-center gap-2 text-slate-400 mt-2 font-medium">
+                        <HiCalendar className="text-indigo-400" />
+                        <span>Payroll for {currentMonthName}</span>
+                    </div>
+                </div>
 
-            <div className="flex justify-between items-center p-4 bg-indigo-50 rounded-lg text-indigo-800 font-medium shadow-inner">
-                <span className="flex items-center">
-                    <HiCreditCard className="w-5 h-5 inline mr-2" /> 
-                    Showing overview for: **{currentMonthName}**
-                </span>
-                
-                {/* Batch Print Button */}
                 <button
                     onClick={handleBatchPrint}
                     disabled={selectedTeacherIds.size === 0 || loading}
-                    className={`px-4 py-2 rounded-lg text-white font-semibold transition flex items-center ${
-                        selectedTeacherIds.size === 0 || loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 shadow-md'
-                    }`}
+                    className="flex items-center gap-2 bg-[#303972] text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-[#3f4b94] transition-all disabled:opacity-30 disabled:shadow-none"
                 >
-                    <HiPrinter className="w-5 h-5 mr-2" />
+                    <HiPrinter size={20} />
                     Print Selected ({selectedTeacherIds.size})
                 </button>
             </div>
 
             {/* Notification Bar */}
             {message && (
-                <div className={`p-3 rounded-md text-sm ${message.type === 'error' ? 'bg-red-100 text-red-700' : message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                <div className={`mx-8 mt-6 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest border animate-pulse ${
+                    message.type === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                }`}>
                     {message.text}
                 </div>
             )}
             
-            {loading ? (
-                <div className="text-center py-8 text-lg text-indigo-600">Loading salary data...</div>
-            ) : (
-                <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                {/* Checkbox Column */}
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                                    <input
-                                        type="checkbox"
-                                        checked={isAllSelected}
-                                        onChange={(e) => handleSelectAll(e.target.checked)}
-                                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                    />
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SR No.</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Salary</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {teachers.map((teacher) => {
-                                const statusRecord = paymentStatus[teacher.id] || { status: 'Unpaid', paymentDate: 'N/A' };
-                                const isPaid = statusRecord.status === 'Paid';
-                                
-                                return (
-                                    <tr key={teacher.id}>
-                                        {/* Checkbox Cell */}
-                                        <td className="px-6 py-4 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTeacherIds.has(teacher.id)}
-                                                onChange={(e) => handleSelectTeacher(teacher.id, e.target.checked)}
-                                                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{teacher.srNo}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{teacher.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{teacher.designation}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-right">₹{teacher.salary.toLocaleString('en-IN')}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {isPaid ? `Paid (${statusRecord.paymentDate})` : 'Unpaid'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
-                                            {!isPaid && (
+            <div className="p-8">
+                {loading && teachers.length === 0 ? (
+                    <div className="py-20 text-center space-y-4">
+                        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                        <p className="text-slate-400 font-bold italic tracking-tighter uppercase">Synchronizing Ledger...</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/50">
+                                    <th className="p-5 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllSelected}
+                                            onChange={(e) => handleSelectAll(e.target.checked)}
+                                            className="w-5 h-5 rounded-lg border-2 border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                    </th>
+                                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">ID / SR No</th>
+                                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Educator Details</th>
+                                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Gross Salary</th>
+                                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Payment Status</th>
+                                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {teachers.map((teacher) => {
+                                    const statusRecord = paymentStatus[teacher.id] || { status: 'Unpaid', paymentDate: 'N/A' };
+                                    const isPaid = statusRecord.status === 'Paid';
+                                    
+                                    return (
+                                        <tr key={teacher.id} className="hover:bg-slate-50/30 transition-colors group">
+                                            <td className="p-5 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTeacherIds.has(teacher.id)}
+                                                    onChange={(e) => handleSelectTeacher(teacher.id, e.target.checked)}
+                                                    className="w-5 h-5 rounded-lg border-2 border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                />
+                                            </td>
+                                            <td className="p-5">
+                                                <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold">
+                                                    {teacher.srNo}
+                                                </span>
+                                            </td>
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[#303972] font-bold">
+                                                        {teacher.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-[#303972]">{teacher.name}</p>
+                                                        <p className="text-[11px] text-slate-400 font-medium tracking-tight">{teacher.designation}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-5 text-right font-black text-[#303972] text-sm">
+                                                ₹{teacher.salary.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="p-5 text-center">
+                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                                                    isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                                                }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                                    {isPaid ? `Paid: ${statusRecord.paymentDate}` : 'Pending'}
+                                                </div>
+                                            </td>
+                                            <td className="p-5 text-center space-x-2">
+                                                {!isPaid && (
+                                                    <button 
+                                                        onClick={() => handleMarkPaid(teacher.id, teacher.name)}
+                                                        className="bg-emerald-500 hover:bg-emerald-600 text-white p-2 rounded-xl transition-all shadow-md shadow-emerald-100"
+                                                        title="Confirm Payment"
+                                                        disabled={loading}
+                                                    >
+                                                        <HiCheckCircle size={18} />
+                                                    </button>
+                                                )}
                                                 <button 
-                                                    onClick={() => handleMarkPaid(teacher.id, teacher.name)}
-                                                    className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50 transition text-xs font-semibold"
-                                                    title="Mark as Paid"
+                                                    onClick={() => handleGenerateSingleReceipt(teacher)}
+                                                    className="bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 p-2 rounded-xl transition-all shadow-sm"
+                                                    title="Generate Payslip"
                                                     disabled={loading}
                                                 >
-                                                    <HiCheckCircle className="w-4 h-4 inline mr-1" /> Mark Paid
+                                                    <HiPrinter size={18} />
                                                 </button>
-                                            )}
-                                            {isPaid && (
-                                                <span className="text-gray-500 text-xs">Payment Complete</span>
-                                            )}
-                                            
-                                            {/* 🛑 UPDATED: Single print button now calls the new handler */}
-                                            <button 
-                                                onClick={() => handleGenerateSingleReceipt(teacher)}
-                                                className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-600 transition"
-                                                title="Generate Payslip"
-                                                disabled={loading}
-                                            >
-                                                <HiPrinter className="w-5 h-5 inline" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
 
-            {/* --- Unified Print Modal/View --- */}
-            {/* 🛑 Pass the list of slips (which might contain just one) to the batch component */}
+            {/* Print Modal */}
             {isPrintingModalOpen && (
                 <SalaryBatchPrint 
                     slipDataList={slipsToPrint} 

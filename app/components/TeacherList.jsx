@@ -2,43 +2,45 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HiEye, HiPencilAlt, HiTrash, HiSearch } from 'react-icons/hi';
-// 🛑 IMPORTANT: Correct the path to your Firebase config file
-import { collection, getDocs, deleteDoc, doc, getFirestore } from 'firebase/firestore';
-import { db } from '../firebase/config'; 
+import { 
+    HiOutlineEye, 
+    HiOutlinePencilAlt, 
+    HiOutlineTrash, 
+    HiOutlineSearch 
+} from 'react-icons/hi';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import Image from 'next/image';
 
-
+// --- STYLING CONSTANTS ---
+const TEXT_NAVY = "#303972";
+const TEXT_MUTED = "#A0A3BD";
 
 // --- FIRESTORE INTEGRATION LOGIC ---
-
 const fetchTeachers = async () => {
     try {
         const teachersCollection = collection(db, 'teachers');
         const teacherSnapshot = await getDocs(teachersCollection); 
-        
-        const teacherList = teacherSnapshot.docs.map(doc => ({
+        return teacherSnapshot.docs.map(doc => ({
             id: doc.id, 
             ...doc.data() 
         }));
-        return teacherList;
     } catch (error) {
         console.error("Firestore Fetch Error:", error);
         throw new Error(`Failed to fetch teacher data: ${error.message}`);
     }
 };
 
-const deleteTeacher = async (id) => {
+const deleteTeacherFromDb = async (id) => {
     try {
         const teacherDocRef = doc(db, 'teachers', id); 
         await deleteDoc(teacherDocRef);
         return true;
     } catch (error) {
         console.error("Firestore Delete Error:", error);
-        throw new Error(`Failed to delete teacher with ID ${id}: ${error.message}`);
+        throw new Error(`Failed to delete teacher: ${error.message}`);
     }
 };
-// -----------------------------------------------------------------
-
 
 function TeacherList({ setCurrentView, setSelectedTeacher }) {
     const [teachers, setTeachers] = useState([]);
@@ -53,41 +55,30 @@ function TeacherList({ setCurrentView, setSelectedTeacher }) {
             setTeachers(data);
             setError(null);
         } catch (err) {
-            console.error("Failed to load teachers:", err);
-            setError("Failed to load teacher data. Please check your Firebase connection and permissions.");
+            setError("Failed to load teacher data. Please check connection.");
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        reloadData();
-    }, []);
+    useEffect(() => { reloadData(); }, []);
 
-    const handleView = (teacher) => {
+    const handleAction = (view, teacher) => {
         setSelectedTeacher(teacher);           
-        setCurrentView('VIEW_PRINT'); // Uses the view key defined in the parent
-    };
-    
-    const handleEdit = (teacher) => {
-        setSelectedTeacher(teacher);           
-        setCurrentView('EDIT');      // Uses the view key defined in the parent
+        setCurrentView(view); 
     };
 
-    const handleDelete = async (teacherId) => {
-        if (!window.confirm("Are you sure you want to delete this teacher? This action cannot be undone.")) {
-            return;
-        }
+    const handleDelete = async (teacherId, teacherName) => {
+        if (!window.confirm(`Permanently delete records for ${teacherName}?`)) return;
 
         try {
             setLoading(true); 
-            await deleteTeacher(teacherId);
+            await deleteTeacherFromDb(teacherId);
             setTeachers(prev => prev.filter(t => t.id !== teacherId)); 
-            setLoading(false);
         } catch (err) {
+            alert(`Delete failed: ${err.message}`);
+        } finally {
             setLoading(false);
-            alert(`Failed to delete teacher: ${err.message}`);
-            console.error(err);
         }
     };
 
@@ -97,100 +88,105 @@ function TeacherList({ setCurrentView, setSelectedTeacher }) {
         (teacher.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-
-    if (loading) {
+    if (loading && teachers.length === 0) {
         return (
-            <div className="text-center py-10 text-lg text-indigo-600">
-                Loading teacher list from Firebase...
+            <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+                <div className="text-sm font-bold tracking-widest uppercase text-purple-400">Syncing Directory...</div>
             </div>
         );
     }
-
-    if (error) {
-        return (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-                <p className="font-bold">Error</p>
-                <p>{error}</p>
-                <button 
-                    onClick={reloadData} 
-                    className="mt-2 text-sm text-red-700 underline hover:text-red-900"
-                >
-                    Try Reloading Data
-                </button>
-            </div>
-        );
-    }
-
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-                <h2 className="text-xl font-semibold text-gray-800">Teacher Roster ({teachers.length})</h2>
+        <div className="space-y-8">
+            {/* Inner Header matching Spik UI */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <h2 className="text-xl font-bold" style={{ color: TEXT_NAVY }}>
+                    Teachers Information
+                </h2>
                 
-                {/* Search Bar */}
-                <div className="relative w-full sm:w-1/2">
+                <div className="relative min-w-[320px]">
+                    <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: TEXT_MUTED }} size={18} />
                     <input
                         type="text"
-                        placeholder="Search by Name,  ID No., or Email..."
+                        placeholder="Search by name, ID or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full pl-11 pr-4 py-2.5 bg-[#F8F9FD] border-none rounded-xl text-sm font-semibold focus:ring-2 focus:ring-purple-200 transition-all"
+                        style={{ color: TEXT_NAVY }}
                     />
-                    <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 </div>
             </div>
 
-            {/* Teacher Table */}
-            <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID NO.</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qualification</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            {/* Floating Row Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-separate border-spacing-y-3">
+                    <thead>
+                        <tr className="text-[13px] font-bold" style={{ color: TEXT_NAVY }}>
+                            <th className="px-6 py-4 w-12"><input type="checkbox" className="rounded-md border-slate-300 accent-purple-600" /></th>
+                            <th className="px-4 py-4">Teachers Name</th>
+                            <th className="px-4 py-4">ID No.</th>
+                            <th className="px-4 py-4">Qualification</th>
+                            <th className="px-4 py-4">Salary</th>
+                            <th className="px-4 py-4">Status</th>
+                            <th className="px-4 py-4 text-right">Action</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-transparent">
                         {filteredTeachers.length > 0 ? (
                             filteredTeachers.map((teacher) => (
-                                <tr key={teacher.id}>
-                                    <td className="px-3 py-4 whitespace-nowrap">
-                                        <img className="h-10 w-10 rounded-full object-cover" 
-                                            src={teacher.imageUrl || 'https://via.placeholder.com/40?text=U'} 
-                                            alt={teacher.name} 
-                                            onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/40?text=U" }}
-                                        />
+                                <tr key={teacher.id} className="group hover:bg-[#F8F9FD] transition-all cursor-pointer">
+                                    <td className="px-6 py-4 rounded-l-2xl border-y border-l border-transparent group-hover:border-slate-100 bg-white">
+                                        <input type="checkbox" className="rounded-md border-slate-300 accent-purple-600" />
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{teacher.srNo}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{teacher.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{teacher.qualification}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{(teacher.salary || 0).toLocaleString('en-IN')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${teacher.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    <td className="px-4 py-4 border-y border-transparent group-hover:border-slate-100 bg-white">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-11 w-11 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200 shrink-0">
+                                                <Image 
+                                                    src={teacher.imageUrl || 'https://via.placeholder.com/150'} 
+                                                    alt="" fill className="object-cover" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-sm" style={{ color: TEXT_NAVY }}>{teacher.name}</div>
+                                                <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED }}>{teacher.email || 'No Email'}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4 border-y border-transparent group-hover:border-slate-100 font-bold text-sm bg-white" style={{ color: TEXT_NAVY }}>
+                                        #{teacher.srNo || '0000'}
+                                    </td>
+                                    <td className="px-4 py-4 border-y border-transparent group-hover:border-slate-100 text-sm font-semibold bg-white" style={{ color: TEXT_NAVY }}>
+                                        {teacher.qualification || 'N/A'}
+                                    </td>
+                                    <td className="px-4 py-4 border-y border-transparent group-hover:border-slate-100 text-sm font-bold bg-white" style={{ color: TEXT_NAVY }}>
+                                        ₹{(teacher.salary || 0).toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="px-4 py-4 border-y border-transparent group-hover:border-slate-100 bg-white">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                            teacher.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'
+                                        }`}>
                                             {teacher.status || 'Active'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
-                                        <button onClick={() => handleView(teacher)} className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition" title="View & Print Details">
-                                            <HiEye className="w-5 h-5" />
-                                        </button>
-                                        <button onClick={() => handleEdit(teacher)} className="text-yellow-600 hover:text-yellow-900 p-1 rounded-full hover:bg-yellow-50 transition" title="Edit Teacher">
-                                            <HiPencilAlt className="w-5 h-5" />
-                                        </button>
-                                        <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition" title="Delete Teacher">
-                                            <HiTrash className="w-5 h-5" />
-                                        </button>
+                                    <td className="px-4 py-4 border-y border-r border-transparent rounded-r-2xl group-hover:border-slate-100 bg-white">
+                                        <div className="flex justify-end gap-1">
+                                            <button onClick={() => handleAction('VIEW_PRINT', teacher)} className="p-2 text-[#A0A3BD] hover:text-purple-600 hover:bg-slate-50 rounded-lg transition-all">
+                                                <HiOutlineEye size={18} />
+                                            </button>
+                                            <button onClick={() => handleAction('EDIT', teacher)} className="p-2 text-[#A0A3BD] hover:text-amber-500 hover:bg-slate-50 rounded-lg transition-all">
+                                                <HiOutlinePencilAlt size={18} />
+                                            </button>
+                                            <button onClick={() => handleDelete(teacher.id, teacher.name)} className="p-2 text-[#A0A3BD] hover:text-rose-500 hover:bg-slate-50 rounded-lg transition-all">
+                                                <HiOutlineTrash size={18} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                                    No teachers found. Use the "Add New Teacher" tab to start.
+                                <td colSpan="7" className="py-20 text-center font-bold" style={{ color: TEXT_MUTED }}>
+                                    No educators found matching your criteria.
                                 </td>
                             </tr>
                         )}

@@ -5,14 +5,11 @@ import { db } from '../firebase/config';
 import { collection, getDocs, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { 
     HiOutlineSearch, 
-    HiOutlineFilter, 
-    HiOutlineUserAdd, 
+    HiOutlinePlus, 
     HiOutlinePencilAlt, 
-    HiOutlineEye, 
     HiOutlineTrash,
-    HiOutlineAcademicCap,
-    HiOutlineDatabase,
-    HiOutlineLightningBolt 
+    HiOutlineAdjustments,
+    HiOutlineCalendar
 } from 'react-icons/hi';
 import AddStudentForm from '../components/AddStudentForm';
 import EditStudentForm from '../components/EditStudentForm';
@@ -90,179 +87,160 @@ function StudentListPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4 md:p-8 pb-24 md:pb-8">
-            <div className="max-w-7xl mx-auto space-y-6">
+        <div className="min-h-screen bg-[#F8F9FD] p-6 lg:p-10">
+            <div className="max-w-[1400px] mx-auto space-y-8">
                 
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center italic uppercase tracking-tight">
-                            <HiOutlineAcademicCap className="mr-3 text-indigo-600 w-8 h-8 md:w-10 md:h-10" />
-                            {showOnlyDummy ? "Dummy Records" : "Student Directory"}
-                        </h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <HiOutlineDatabase className="text-indigo-400 w-4 h-4" />
-                            <p className="text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
-                                Session: <span className="text-indigo-600">{activeSession || '...'}</span>
-                            </p>
-                        </div>
+                        <h2 className="text-2xl font-bold text-[#303972]">Students List</h2>
+                        <p className="text-sm text-[#A0A3BD] mt-1 font-medium">Home / Students</p>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                         <button
                             onClick={() => setShowOnlyDummy(!showOnlyDummy)}
-                            className={`flex-1 md:flex-none flex items-center justify-center px-4 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all ${
-                                showOnlyDummy ? 'bg-rose-500 text-white' : 'bg-white text-slate-400 border border-slate-200'
+                            className={`px-6 py-2.5 rounded-lg font-bold text-xs transition-all border ${
+                                showOnlyDummy 
+                                ? 'bg-rose-50 text-rose-500 border-rose-200 shadow-sm' 
+                                : 'bg-white text-[#A0A3BD] border-slate-200'
                             }`}
                         >
-                            <HiOutlineLightningBolt className="w-4 h-4 mr-1" />
-                            {showOnlyDummy ? "Dummy" : "Show Dummy"}
+                            {showOnlyDummy ? "Dummy Records" : "Show Dummy"}
                         </button>
 
                         <button
                             onClick={() => setShowAddForm(true)}
-                            className="flex-1 md:flex-none bg-indigo-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest flex items-center justify-center"
+                            className="bg-[#6B46C1] hover:bg-[#553C9A] text-white px-6 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-100 transition-all active:scale-95"
                         >
-                            <HiOutlineUserAdd className="w-4 h-4 mr-1" />
-                            Enroll
+                            <HiOutlinePlus size={18} />
+                            Add Students
                         </button>
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="relative md:col-span-1">
-                        <HiOutlineFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className="w-full pl-11 pr-4 py-4 bg-white border-none rounded-2xl text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                        >
-                            <option value="">All Classes</option>
-                            {MOCK_CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                        </select>
-                    </div>
-                    <div className="relative md:col-span-2">
-                        <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Search name or ID..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-4 bg-white border-none rounded-2xl text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                    </div>
-                </div>
-
-                {/* --- RESPONSIVE LIST/TABLE --- */}
-                {loading ? (
-                    <div className="py-20 text-center font-black text-slate-300 uppercase tracking-widest animate-pulse">Loading...</div>
-                ) : (
-                    <div className="space-y-4 md:space-y-0">
-                        {/* Desktop Table View (Hidden on Mobile) */}
-                        <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                            <table className="w-full border-collapse">
-                                <thead className="bg-slate-50 border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
-                                        <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Class</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {filteredStudents.map((student) => (
-                                        <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-8 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-12 w-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 relative">
-                                                        {student.imageUrl ? (
-                                                            <Image src={student.imageUrl} alt="" fill className="object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">IMG</div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black text-slate-800 text-sm uppercase">{student.name}</p>
-                                                        <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">ID: {student.studentId || 'N/A'}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Class {student.grade}</span>
-                                            </td>
-                                            <td className="px-8 py-4">
-                                                <div className="flex justify-center gap-2">
-                                                    <button onClick={() => setViewingStudent(student)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all"><HiOutlineEye size={18} /></button>
-                                                    <button onClick={() => setEditingStudent(student)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-amber-600 rounded-xl transition-all"><HiOutlinePencilAlt size={18} /></button>
-                                                    <button onClick={() => handleDelete(student.id, student.name)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all"><HiOutlineTrash size={18} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile Card View (Visible on Mobile Only) */}
-                        <div className="grid grid-cols-1 gap-4 md:hidden">
-                            {filteredStudents.map((student) => (
-                                <div key={student.id} className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden relative shrink-0">
-                                            {student.imageUrl ? (
-                                                <Image src={student.imageUrl} alt="" fill className="object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-300 font-bold uppercase">No Img</div>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-black text-slate-800 text-base uppercase truncate leading-tight">{student.name}</p>
-                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">ROLL: {student.studentId || 'N/A'}</p>
-                                            <div className="mt-2 flex gap-2">
-                                                <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">Class {student.grade}</span>
-                                                <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">{student.fatherName || 'No Parent Info'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Action Buttons for Mobile */}
-                                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50">
-                                        <button 
-                                            onClick={() => setViewingStudent(student)}
-                                            className="flex flex-col items-center justify-center py-3 bg-slate-50 rounded-2xl text-slate-500 active:bg-indigo-50 active:text-indigo-600 transition-colors"
-                                        >
-                                            <HiOutlineEye size={20} />
-                                            <span className="text-[8px] font-black uppercase mt-1">View</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setEditingStudent(student)}
-                                            className="flex flex-col items-center justify-center py-3 bg-slate-50 rounded-2xl text-slate-500 active:bg-amber-50 active:text-amber-600 transition-colors"
-                                        >
-                                            <HiOutlinePencilAlt size={20} />
-                                            <span className="text-[8px] font-black uppercase mt-1">Edit</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete(student.id, student.name)}
-                                            className="flex flex-col items-center justify-center py-3 bg-slate-50 rounded-2xl text-slate-500 active:bg-rose-50 active:text-rose-600 transition-colors"
-                                        >
-                                            <HiOutlineTrash size={20} />
-                                            <span className="text-[8px] font-black uppercase mt-1">Delete</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {filteredStudents.length === 0 && (
-                            <div className="py-20 text-center bg-white rounded-[2rem] border border-slate-100 font-black text-slate-300 uppercase tracking-widest text-xs">
-                                No records found
+                {/* Content Container (Card) */}
+                <div className="bg-white rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-100">
+                    
+                    {/* Toolbar Area */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+                        <h3 className="text-lg font-bold text-[#303972]">Students Information</h3>
+                        
+                        <div className="flex flex-wrap items-center gap-3">
+                            {/* Class Filter Dropdown */}
+                            <div className="relative min-w-[140px]">
+                                <select
+                                    value={selectedClass}
+                                    onChange={(e) => setSelectedClass(e.target.value)}
+                                    className="w-full pl-4 pr-10 py-2.5 bg-[#F8F9FD] border-none rounded-xl text-sm font-semibold text-[#A0A3BD] appearance-none cursor-pointer focus:ring-2 focus:ring-purple-200 transition-all"
+                                >
+                                    <option value="">All Classes</option>
+                                    {MOCK_CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                                </select>
+                                <HiOutlineAdjustments className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A0A3BD] pointer-events-none" />
                             </div>
-                        )}
+
+                            {/* Search Input */}
+                            <div className="relative min-w-[280px]">
+                                <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A3BD]" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or roll..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2.5 bg-[#F8F9FD] border-none rounded-xl text-sm font-semibold text-[#303972] placeholder-[#A0A3BD] focus:ring-2 focus:ring-purple-200 transition-all"
+                                />
+                            </div>
+
+                            {/* Date Placeholder as per image */}
+                            <div className="hidden sm:flex items-center gap-2 bg-[#F8F9FD] px-4 py-2.5 rounded-xl text-[#A0A3BD] text-xs font-bold border border-transparent">
+                                <HiOutlineCalendar size={18} />
+                                Last 30 days
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    {/* Table View */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-separate border-spacing-y-2">
+                            <thead>
+                                <tr className="text-[#303972] text-[13px] font-bold">
+                                    <th className="px-4 py-4 w-12"><input type="checkbox" className="rounded-md border-slate-300 accent-purple-600" /></th>
+                                    <th className="px-4 py-4">Students Name</th>
+                                    <th className="px-4 py-4">Roll No</th>
+                                    <th className="px-4 py-4">Parent Name</th>
+                                    <th className="px-4 py-4">Class</th>
+                                    <th className="px-4 py-4 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" className="py-20 text-center text-[#A0A3BD] font-bold animate-pulse uppercase tracking-widest text-xs">Processing Directory...</td>
+                                    </tr>
+                                ) : filteredStudents.map((student) => (
+                                    <tr 
+                                        key={student.id} 
+                                        onClick={() => setViewingStudent(student)}
+                                        className="group hover:bg-[#F8F9FD] cursor-pointer transition-colors"
+                                    >
+                                        <td className="px-4 py-3 rounded-l-2xl border-y border-l border-transparent group-hover:border-slate-100">
+                                            <input type="checkbox" className="rounded-md border-slate-300 accent-purple-600" onClick={(e) => e.stopPropagation()} />
+                                        </td>
+                                        <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200 shrink-0">
+                                                    {student.imageUrl ? (
+                                                        <Image src={student.imageUrl} alt="" fill className="object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400 font-bold">IMG</div>
+                                                    )}
+                                                </div>
+                                                <span className="font-bold text-[#303972] text-sm">{student.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100 font-bold text-[#303972] text-sm">
+                                            #{student.studentId || '---'}
+                                        </td>
+                                        <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100 text-[#303972] text-sm font-medium">
+                                            {student.fatherName || 'Not Specified'}
+                                        </td>
+                                        <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100">
+                                            <span className="bg-purple-50 text-purple-600 px-3 py-1 rounded-full text-xs font-bold">
+                                                {student.grade}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 border-y border-r border-transparent rounded-r-2xl group-hover:border-slate-100">
+                                            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <button 
+                                                    onClick={() => setEditingStudent(student)}
+                                                    className="p-2 text-[#A0A3BD] hover:text-amber-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                >
+                                                    <HiOutlinePencilAlt size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(student.id, student.name)}
+                                                    className="p-2 text-[#A0A3BD] hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                >
+                                                    <HiOutlineTrash size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {!loading && filteredStudents.length === 0 && (
+                        <div className="py-20 text-center text-[#A0A3BD] font-bold text-sm bg-[#F8F9FD] rounded-2xl border border-dashed border-slate-200">
+                            No students found in the directory for this criteria.
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Modals */}
+            {/* Modals - Functional logic remains identical */}
             {showAddForm && (
                 <AddStudentForm 
                     activeSession={activeSession} 

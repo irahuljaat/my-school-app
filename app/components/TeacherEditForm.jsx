@@ -1,22 +1,20 @@
-// components/TeacherEditForm.jsx
 'use client';
 
-import React, { useState } from 'react';
-import { HiUpload, HiSave, HiX, HiUserAdd, HiPencilAlt } from 'react-icons/hi';
-// 🛑 IMPORTANT: Ensure the path to your firebase config is correct
-import { doc, updateDoc, getFirestore } from 'firebase/firestore'; 
+import React, { useState, useEffect } from 'react';
+import { HiUpload, HiSave, HiX, HiPencilAlt, HiUserCircle } from 'react-icons/hi';
+import { doc, updateDoc } from 'firebase/firestore'; 
 import { db } from '../firebase/config'; 
+import Image from 'next/image';
 
-
-// --- ACTUAL INTEGRATION LOGIC ---
-
-// Cloudinary logic should be reusable from AddTeacherForm, but we'll include it here for completeness
+// --- CLOUDINARY UPLOAD HELPER ---
 const uploadImageToCloudinary = async (file) => {
-    // ... (Use the same logic as in AddTeacherForm.jsx, reading from process.env)
     const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
     
-    // ... (API URL construction and fetch logic) ...
+    if (!CLOUD_NAME || !UPLOAD_PRESET) {
+        throw new Error("Cloudinary configuration missing in environment variables.");
+    }
+
     const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
     
     const formData = new FormData();
@@ -25,36 +23,29 @@ const uploadImageToCloudinary = async (file) => {
 
     const response = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
     const data = await response.json();
+    
     if (!response.ok) {
-        throw new Error(`Cloudinary upload failed: ${data.error?.message || response.statusText}`);
+        throw new Error(data.error?.message || "Cloudinary upload failed");
     }
     return data.secure_url;
 };
 
-
-// 🛑 STEP 5: Implement the Firebase Update Function (REAL FIRESTORE LOGIC)
-const updateTeacherInFirebase = async (teacherId, dataToUpdate) => {
-    try {
-        // Create a document reference
-        const teacherDocRef = doc(db, 'teachers', teacherId);
-        
-        // Use updateDoc to apply the changes
-        await updateDoc(teacherDocRef, dataToUpdate);
-        return true;
-    } catch (error) {
-        console.error("Firestore Update Error:", error);
-        throw new Error(`Failed to update teacher data: ${error.message}`);
-    }
-};
-// ------------------------------------
-
-
 function TeacherEditForm({ teacherData, onSuccess }) {
-    // Initialize form state with the data passed from the parent component
+    // Initialize form with existing teacher data
     const [formData, setFormData] = useState(teacherData);
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
-    const [imageFile, setImageFile] = useState(null); // Holds a *new* file for upload
+    const [imageFile, setImageFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(teacherData.imageUrl || '');
+
+    // Memory cleanup for image previews
+    useEffect(() => {
+        return () => {
+            if (previewUrl && previewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -65,7 +56,7 @@ function TeacherEditForm({ teacherData, onSuccess }) {
         const file = e.target.files[0];
         if (file) {
             setImageFile(file);
-            setMessage(null);
+            setPreviewUrl(URL.createObjectURL(file));
         }
     };
 
@@ -75,271 +66,244 @@ function TeacherEditForm({ teacherData, onSuccess }) {
         setMessage(null);
 
         try {
-            let uploadedImageUrl = formData.imageUrl; // Keep existing URL by default
+            let finalImageUrl = formData.imageUrl;
 
-            // 1. Image Upload to Cloudinary (ONLY if a new file is selected)
+            // 1. Handle New Image Upload if selected
             if (imageFile) {
-                setMessage({ type: 'info', text: 'Uploading new image...' });
-                uploadedImageUrl = await uploadImageToCloudinary(imageFile); 
+                setMessage({ type: 'info', text: 'Uploading new profile photo...' });
+                finalImageUrl = await uploadImageToCloudinary(imageFile);
             }
 
-            // 2. Prepare Data to Update (Firestore only accepts fields that exist)
+            // 2. Prepare clean data for Firestore
+            // We destructure 'id' to ensure we don't save the document ID as a field inside the doc
+            const { id, ...cleanData } = formData;
+            
             const dataToUpdate = {
-                ...formData,
-                imageUrl: uploadedImageUrl,
-                updatedAt: Date.now(),
+                ...cleanData,
+                imageUrl: finalImageUrl,
+                updatedAt: new Date().toISOString(),
+                salary: Number(cleanData.salary || 0) // Ensure numeric storage
             };
-            
-            // 3. Save Changes to Firebase
-            setMessage({ type: 'info', text: 'Updating teacher data...' });
-            // The teacherData.id is the Firestore Document ID
-            await updateTeacherInFirebase(teacherData.id, dataToUpdate);
 
-            // Success
-            setMessage({ type: 'success', text: 'Teacher updated successfully!' });
-            setImageFile(null); // Clear new file input
+            // 3. Update Firestore Collection: 'teachers'
+            const teacherDocRef = doc(db, 'teachers', id);
+            await updateDoc(teacherDocRef, dataToUpdate);
+
+            setMessage({ type: 'success', text: 'Teacher records updated successfully!' });
             
-            // Redirect after success
+            // Close modal/form after success
             setTimeout(() => {
                 if (onSuccess) onSuccess();
             }, 1500);
 
         } catch (error) {
-            console.error("Error updating teacher:", error);
-            setMessage({ type: 'error', text: `Failed to update teacher: ${error.message}` });
+            setMessage({ type: 'error', text: error.message });
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Determine the preview image source: new file, existing URL, or placeholder
-    const previewImageUrl = imageFile 
-        ? URL.createObjectURL(imageFile) 
-        : formData.imageUrl 
-        ? formData.imageUrl 
-        : ''; 
-    
     return (
-        <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg border-t-4 border-yellow-500">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-                <HiPencilAlt className="w-6 h-6 mr-2 text-yellow-600" /> Edit Teacher Details
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">Editing: **{formData.name}** (ID No.: {formData.srNo})</p>
-
-            {/* Notification Bar */}
-            {message && (
-                <div 
-                    className={`p-3 mb-4 rounded-md text-sm ${
-                        message.type === 'error' ? 'bg-red-100 text-red-700' : 
-                        message.type === 'success' ? 'bg-green-100 text-green-700' : 
-                        'bg-blue-100 text-blue-700'
-                    }`}
+        <div className="max-w-5xl mx-auto p-8 bg-white rounded-3xl mt-10 shadow-2xl border border-slate-100">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-10">
+                <div>
+                    <h2 className="text-3xl font-bold text-[#303972] flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                            <HiPencilAlt size={24} />
+                        </div>
+                        Edit Educator Details
+                    </h2>
+                    <p className="text-sm font-medium text-slate-400 mt-2">
+                        Managing Record: <span className="text-purple-600 font-bold">{formData.srNo || 'N/A'}</span>
+                    </p>
+                </div>
+                <button 
+                    onClick={onSuccess} 
+                    className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
                 >
+                    <HiX size={28} />
+                </button>
+            </div>
+
+            {/* Status Notifications */}
+            {message && (
+                <div className={`mb-8 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest border ${
+                    message.type === 'error' 
+                        ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                        : 'bg-blue-50 text-blue-600 border-blue-100'
+                }`}>
                     {message.text}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                
-                {/* Image Upload and Preview */}
-                <div className="flex items-center space-x-6">
-                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200 flex items-center justify-center bg-gray-100">
-                        {previewImageUrl ? (
-                            <img 
-                                src={previewImageUrl} 
-                                alt="Profile Preview" 
-                                className="w-full h-full object-cover"
-                            />
+            <form onSubmit={handleSubmit} className="space-y-10">
+                {/* Profile Photo Section */}
+                <div className="flex flex-col md:flex-row items-center gap-8 pb-10 border-b border-slate-100">
+                    <div className="relative w-32 h-32 rounded-3xl overflow-hidden bg-slate-50 border-4 border-white shadow-xl">
+                        {previewUrl ? (
+                            <Image src={previewUrl} alt="Preview" fill className="object-cover" />
                         ) : (
-                            <HiUserAdd className="w-10 h-10 text-gray-400" />
+                            <div className="w-full h-full flex items-center justify-center text-slate-200">
+                                <HiUserCircle size={80} />
+                            </div>
                         )}
                     </div>
-                    <div>
-                        <label htmlFor="image-upload" className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
-                            <HiUpload className="w-5 h-5 mr-2" />
-                            {imageFile ? imageFile.name : 'Change Profile Photo'}
-                        </label>
-                        <input 
-                            id="image-upload" 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={handleImageChange} 
-                        />
-                        {/* Option to clear image URL if one exists and no new file selected */}
-                        {formData.imageUrl && !imageFile && (
-                            <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({...prev, imageUrl: ''}))}
-                                className="ml-3 text-red-500 hover:text-red-700 text-sm font-medium"
-                            >
-                                <HiX className="w-5 h-5 inline mr-1" /> Remove Current Photo
-                            </button>
-                        )}
+                    <div className="text-center md:text-left">
+                        <label className="block text-sm font-bold text-[#303972] mb-3 uppercase tracking-tighter">Profile Photo</label>
+                        <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                            <label className="cursor-pointer bg-[#303972] text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-[#3f4b94] transition-all flex items-center gap-2 shadow-lg shadow-blue-100">
+                                <HiUpload /> Choose New Image
+                                <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                            </label>
+                            {previewUrl && (
+                                <button 
+                                    type="button" 
+                                    onClick={() => { setPreviewUrl(''); setImageFile(null); setFormData(prev => ({...prev, imageUrl: ''})); }}
+                                    className="px-6 py-2.5 border border-rose-200 text-rose-500 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all"
+                                >
+                                    Remove Photo
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Grid Layout for Main Details */}
-                {/* Note: SR No. should ideally be read-only if it's a unique identifier */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Teacher SR No. */}
-                    <div>
-                        <label htmlFor="srNo" className="block text-sm font-medium text-gray-700">ID No. <span className="text-red-500">*</span></label>
+                {/* Main Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
+                    {/* Full Name */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Full Name</label>
                         <input
-                            type="text"
-                            name="srNo"
-                            id="srNo"
-                            value={formData.srNo}
-                            onChange={handleChange}
-                            required
-                            readOnly // Often SR No. is read-only
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border bg-gray-50"
-                        />
-                    </div>
-                    {/* Name */}
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Full Name <span className="text-red-500">*</span></label>
-                        <input
-                            type="text"
                             name="name"
-                            id="name"
-                            value={formData.name}
+                            value={formData.name || ''}
                             onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                             required
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
                         />
                     </div>
-                    {/* Status (NEW FIELD FOR EDIT) */}
-                    <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status <span className="text-red-500">*</span></label>
+
+                    {/* Status */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Current Status</label>
                         <select
                             name="status"
-                            id="status"
                             value={formData.status || 'Active'}
                             onChange={handleChange}
-                            required
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         >
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                             <option value="On Leave">On Leave</option>
                         </select>
                     </div>
-                     {/* Phone */}
-                    <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone <span className="text-red-500">*</span></label>
+
+                    {/* Mobile */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Mobile Number</label>
                         <input
-                            type="tel"
                             name="phone"
-                            id="phone"
-                            value={formData.phone}
+                            value={formData.phone || ''}
                             onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                             required
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
                         />
                     </div>
+
                     {/* Email */}
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email Address</label>
                         <input
                             type="email"
                             name="email"
-                            id="email"
-                            value={formData.email}
+                            value={formData.email || ''}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         />
                     </div>
+
                     {/* Qualification */}
-                    <div>
-                        <label htmlFor="qualification" className="block text-sm font-medium text-gray-700">Highest Qualification</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Qualification</label>
                         <input
-                            type="text"
                             name="qualification"
-                            id="qualification"
-                            value={formData.qualification}
+                            value={formData.qualification || ''}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         />
                     </div>
-                    {/* Subjects Taught */}
-                    <div>
-                        <label htmlFor="subjectsTaught" className="block text-sm font-medium text-gray-700">Subjects Taught (e.g., Math, Science)</label>
+
+                    {/* Subjects */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Subjects Taught</label>
                         <input
-                            type="text"
                             name="subjectsTaught"
-                            id="subjectsTaught"
-                            value={formData.subjectsTaught}
+                            value={formData.subjectsTaught || ''}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         />
                     </div>
+
                     {/* Salary */}
-                    <div>
-                        <label htmlFor="salary" className="block text-sm font-medium text-gray-700">Monthly Salary (INR) <span className="text-red-500">*</span></label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Monthly Salary (₹)</label>
                         <input
                             type="number"
                             name="salary"
-                            id="salary"
-                            value={formData.salary}
+                            value={formData.salary || ''}
                             onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                             required
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
                         />
                     </div>
+
                     {/* Joining Date */}
-                    <div>
-                        <label htmlFor="joiningDate" className="block text-sm font-medium text-gray-700">Joining Date</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Joining Date</label>
                         <input
                             type="date"
                             name="joiningDate"
-                            id="joiningDate"
-                            value={formData.joiningDate}
+                            value={formData.joiningDate || ''}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         />
                     </div>
                 </div>
 
-                {/* Address (Full Width) */}
-                <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">Full Address</label>
+                {/* Full Width Address */}
+                <div className="space-y-2 pt-4">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Residential Address</label>
                     <textarea
                         name="address"
-                        id="address"
                         rows="3"
-                        value={formData.address}
+                        value={formData.address || ''}
                         onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 p-2 border"
+                        className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none resize-none"
                     ></textarea>
                 </div>
 
-                {/* Submit and Cancel Buttons */}
-                <div className="flex justify-end space-x-4 pt-4 border-t">
+                {/* Action Buttons */}
+                <div className="flex justify-end items-center gap-6 pt-10 border-t border-slate-50">
                     <button
                         type="button"
-                        onClick={onSuccess} // Use onSuccess to return to the list view without saving
-                        className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition"
+                        onClick={onSuccess}
+                        className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
                     >
-                        Cancel
+                        Cancel Changes
                     </button>
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white ${
-                            isLoading ? 'bg-yellow-400 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500'
-                        } transition`}
+                        className="px-12 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-sm font-bold shadow-xl shadow-purple-100 flex items-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isLoading ? (
-                            <>
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Updating...
-                            </>
+                            <span className="flex items-center gap-2 italic animate-pulse">
+                                Processing...
+                            </span>
                         ) : (
-                            <><HiSave className="w-5 h-5 mr-2" /> Save Changes</>
+                            <>
+                                <HiSave size={18} /> Update Profile
+                            </>
                         )}
                     </button>
                 </div>

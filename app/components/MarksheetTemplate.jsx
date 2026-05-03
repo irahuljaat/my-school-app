@@ -3,34 +3,6 @@ import SchoolLogo from '../images/logo.png';
 
 const MarksheetTemplate = ({ student, examResults, activeSession }) => {
     
-    // 1. Grade Logic
-    const calculateGrade = (perc) => {
-        if (perc >= 90) return 'A+';
-        if (perc >= 75) return 'A';
-        if (perc >= 60) return 'B';
-        if (perc >= 45) return 'C';
-        return 'D';
-    };
-
-    const studentGrade = calculateGrade(student.percentage);
-
-    // 2. Remarks Pool
-    const remarkPool = {
-        'A+': ["Exceptional performance! Demonstrates outstanding mastery of all subjects.", "A brilliant student with consistent excellence in every academic area.", "Outstanding achievement. Keep up this phenomenal standard of work.", "Exemplary dedication and intelligence. A true role model for the class.", "Remarkable results. Your hard work and focus are truly inspiring."],
-        'A': ["Very good performance. Shows strong understanding and steady progress.", "A hardworking student who consistently delivers high-quality work.", "Impressive results. Keep maintaining this level of focus and curiosity.", "Strong academic presence. Well-deserved success in this term.", "Great job! Your commitment to learning is clearly visible in your grades."],
-        'B': ["Good effort. With a bit more focus on details, you can reach the top tier.", "Steady performance. Shows good potential for even higher achievements.", "A positive result. Focus on consistent revision to improve further.", "Good understanding of concepts. Keep striving for excellence.", "Well done. Maintain this momentum and focus on your core strengths."],
-        'C': ["Satisfactory results. Regular practice will help improve your scores.", "Fair performance. Focus more on regular attendance and classroom participation.", "Shows potential. Needs more dedication to master complex topics.", "Needs more consistent effort in self-study to gain better clarity.", "Progressing. Aim for more precision and clarity in your assignments."],
-        'D': ["Needs improvement. More dedication and remedial help are suggested.", "Extra effort is required in core subjects to achieve better results.", "Must focus on foundational concepts and complete all class assignments.", "Requires consistent hard work and regular supervision to progress.", "A fresh start with a structured study plan will help in the next term."]
-    };
-
-    const getRandomizedRemark = (grade, studentId) => {
-        const pool = remarkPool[grade];
-        const index = (parseInt(studentId.replace(/\D/g, '')) || 0) % pool.length;
-        return pool[index];
-    };
-
-    const finalRemark = getRandomizedRemark(studentGrade, student.id);
-
     const allSubjects = Array.from(new Set(
         examResults.flatMap(exam => exam.subjects.map(s => s.name))
     ));
@@ -52,137 +24,165 @@ const MarksheetTemplate = ({ student, examResults, activeSession }) => {
     };
 
     return (
-        <div className="bg-white p-[12mm] flex flex-col h-full border-[1px] border-slate-300">
-            {/* Header Section */}
-            <div className="flex justify-between items-center mb-4 border-b-2 border-slate-900 pb-4">
-                <img src={SchoolLogo.src || SchoolLogo} alt="Logo" className="w-18 h-18 object-contain" />
-                <div className="text-center flex-grow">
-                    <h1 className="text-4xl font-black text-slate-900 ml-10 uppercase tracking-tighter whitespace-nowrap">
-                        MVG PUBLIC SR. SEC. SCHOOL
-                    </h1>
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-[0.2em]">
-                        Sheopur, Pratap Nagar, Sanganer, Jaipur 
-                    </p>
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-[0.2em]">
-                        0141-3152600, 9829018332, 8875646366
-                    </p>
-                </div>
-                <div className="w-24"></div>
-            </div>
+        /* Outer Centering Wrapper: Centers the scaled page on screen/print */
+        <div className="flex justify-center items-start min-h-screen bg-slate-100 print:bg-white print:p-0">
+            
+            {/* Main Marksheet Container with Scaling and Darker Aesthetics */}
+            <div className="relative bg-white p-[10mm] flex flex-col h-full border-[2px] border-indigo-950 overflow-hidden shadow-2xl print:shadow-none" 
+                 style={{ 
+                    width: '210mm', 
+                    height: '297mm', 
+                    boxSizing: 'border-box',
+                    /* Key Change: Scaling and Alignment */
+                    transform: 'scale(0.92)',
+                    transformOrigin: 'center top'
+                }}>
+                
+                {/* Outer Decorative Frame */}
+                <div className="absolute inset-1.5 border border-orange-400 pointer-events-none"></div>
 
-            <div className="text-center mb-6"> 
-                <h2 className="text-lg font-black uppercase tracking-widest border-b border-slate-200 inline-block px-4 pb-1">
-                    Academic Mark Sheet
-                </h2>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase">
-                    SESSION: {activeSession || "2026 - 2027"}
-                </p>
-            </div>
-
-            {/* Student Info Section */}
-            <div className="flex gap-6 mb-6 px-4 py-4 border rounded-2xl border-slate-200 bg-slate-50/30">
-                <div className="w-28 h-32 border border-slate-300 rounded-xl bg-white flex-shrink-0 overflow-hidden flex items-center justify-center shadow-sm">
-                    {student.imageUrl ? (
-                        /* shrink fit fix applied here */
-                        <img src={student.imageUrl} className="w-full h-full object-contain p-1" alt="Student" />
-                    ) : (
-                        <span className="text-[8px] font-bold text-slate-300 uppercase text-center p-2">Affix Photo</span>
-                    )}
+                {/* Logo Watermark: Subtle on paper */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
+                    <img src={SchoolLogo.src || SchoolLogo} alt="Watermark" className="w-[400px] h-[400px] object-contain" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-8 gap-y-3 flex-grow self-center">
+                {/* Header Section: Single line layout */}
+                <div className="relative z-10 flex items-center mb-4 border-b-[2px] border-indigo-950 pb-3">
+                    <img src={SchoolLogo.src || SchoolLogo} alt="Logo" className="w-16 h-16 object-contain" />
+                    <div className="text-center flex-grow px-4">
+                        <h1 className="text-[28pt] font-black text-indigo-950 uppercase tracking-tighter leading-none whitespace-nowrap">
+                            MVG PUBLIC SR. SEC. SCHOOL
+                        </h1>
+                        <p className="text-[9px] font-bold text-slate-800 uppercase mt-1 tracking-widest">
+                            Sheopur, Pratap Nagar, Sanganer, Jaipur | Ph: 0141-3152600, 9829018332
+                        </p>
+                    </div>
+                </div>
+
+                {/* Document Title & Session */}
+                <div className="text-center mb-4 relative z-10">
+                    <div className="inline-block px-8 py-0.5 border-y border-orange-400">
+                        <h2 className="text-lg font-black uppercase tracking-[0.15em] text-indigo-950">
+                            Academic Achievement Record
+                        </h2>
+                    </div>
+                    <p className="text-[10px] font-bold text-indigo-800 mt-1 uppercase tracking-wider">
+                        SESSION: {activeSession || "2026 - 2027"}
+                    </p>
+                </div>
+
+                {/* Student Info - Compact Grid */}
+                <div className="relative z-10 grid grid-cols-[110px_1fr] gap-4 mb-4 p-3 border border-indigo-200 bg-slate-50/50 rounded-lg shadow-inner">
+                    <div className="w-[100px] h-[120px] border border-indigo-100 bg-white shadow-sm flex items-center justify-center overflow-hidden rounded">
+                        {student.imageUrl ? (
+                            <img src={student.imageUrl} className="w-full h-full object-cover" alt="Student" />
+                        ) : (
+                            <span className="text-[8px] font-bold text-slate-300 uppercase text-center p-2">Affix Photo</span>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 self-center">
+                        {[
+                            { label: "Student Name", value: student.name, bold: true, color: "text-indigo-950" },
+                            { label: "SR. NO.", value: student.srNo || '—', color: "text-orange-700" },
+                            { label: "Father's Name", value: student.fatherName },
+                            { label: "Mother's Name", value: student.motherName || '—' },
+                            { label: "Class & Section", value: `Grade ${student.grade}`, color: "text-indigo-800" },
+                            { label: "Roll Number", value: student.rollNumber || '—' },
+                            { label: "Date of Birth", value: student.dob || '—' },
+                        ].map((item, i) => (
+                            <div key={i} className="flex justify-between border-b border-slate-300 pb-0.5">
+                                <span className="text-[7.5px] font-black text-slate-500 uppercase tracking-tight">{item.label}</span>
+                                <span className={`text-[9px] uppercase ${item.bold ? 'font-black' : 'font-bold'} ${item.color || 'text-slate-800'}`}>
+                                    {item.value}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Table Section - Major Change: Darker Internal Borders */}
+                <div className="relative z-10 mb-4 border-2 border-indigo-950 rounded-sm overflow-hidden bg-white shadow-sm">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-indigo-950 text-white text-[9px] font-black uppercase tracking-wider">
+                                <th className="p-2 text-left border-r border-indigo-900/50">Subject Name</th>
+                                {examResults.map((exam, i) => (
+                                    <th key={i} className="p-2 text-center border-r border-indigo-900/50" colSpan="2">
+                                        {exam.examName}
+                                    </th>
+                                ))}
+                                <th className="p-2 text-center bg-orange-500">Result Total</th>
+                            </tr>
+                            <tr className="bg-slate-100 text-[7px] font-black uppercase text-indigo-950 border-b-2 border-indigo-950">
+                                <th className="p-0.5 border-r border-indigo-300"></th>
+                                {examResults.map((exam, i) => (
+                                    <React.Fragment key={i}>
+                                        <th className="p-0.5 border-r border-indigo-200">Max</th>
+                                        <th className="p-0.5 border-r border-indigo-300">Obt.</th>
+                                    </React.Fragment>
+                                ))}
+                                <th className="p-0.5 text-orange-700">Marks</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-[10px] font-bold">
+                            {consolidatedData.map((row, i) => (
+                                /* Change: All internal borders changed from slate-200/300 to indigo-950 */
+                                <tr key={i} className="border-b border-indigo-950 last:border-0 hover:bg-orange-50/50">
+                                    <td className="p-2 px-4 text-left uppercase border-r border-indigo-950 font-black text-indigo-950">{row.subjectName}</td>
+                                    {examResults.map((exam, exI) => (
+                                        <React.Fragment key={exI}>
+                                            <td className="p-2 text-center border-r border-indigo-200 text-slate-500 font-medium">100</td>
+                                            <td className="p-2 text-center border-r border-indigo-950 font-black italic text-slate-950">{row[exam.examName]}</td>
+                                        </React.Fragment>
+                                    ))}
+                                    <td className="p-2 text-center font-black bg-orange-50/70 italic text-orange-700">{getSubjectTotalObtained(row)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {/* Summary Statistics */}
+                <div className="relative z-10 grid grid-cols-4 gap-3 mb-4">
                     {[
-                        { label: "Student Name", value: student.name, bold: true },
-                        { label: "Roll Number", value: student.rollNumber || '—' },
-                        { label: "Father's Name", value: student.fatherName },
-                        { label: "Class & Section", value: `Grade ${student.grade}` },
-                        { label: "Date of Birth", value: student.dob || '—' },
-                        { label: "Attendance", value: student.attendance || '—' }
-                    ].map((item, i) => (
-                        <div key={i} className="flex justify-between border-b border-slate-200 pb-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">{item.label}:</span>
-                            <span className={`text-[10px] uppercase ${item.bold ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>
-                                {item.value}
-                            </span>
+                        { label: "Grand Total", val: `${student.totalObtained} / ${student.totalMax}`, border: "border-indigo-300" },
+                        { label: "Percentage", val: `${student.percentage}%`, border: "border-indigo-300" },
+                        { label: "Attendance", val: " ", border: "border-orange-300" },
+                        { label: "Class Rank", val: `#${student.classRank}`, border: "border-indigo-300" }
+                    ].map((stat, i) => (
+                        <div key={i} className={`p-2.5 border-2 ${stat.border} bg-white text-center rounded shadow-sm`}>
+                            <span className="text-[8px] font-black uppercase text-slate-500 block mb-0.5 tracking-widest">{stat.label}</span>
+                            <div className="text-lg font-black italic text-indigo-950">{stat.val}</div>
                         </div>
                     ))}
                 </div>
-            </div>
 
-            {/* Academic Table */}
-            <div className="mb-6 overflow-hidden border border-slate-300 rounded-xl">
-                <table className="w-full border-collapse">
-                    <thead>
-                        <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-700">
-                            <th className="p-3 text-left border-r border-slate-300">Subject Name</th>
-                            {examResults.map((exam, i) => (
-                                <th key={i} className="p-3 text-center border-r border-slate-300" colSpan="2">
-                                    {exam.examName}
-                                </th>
-                            ))}
-                            <th className="p-3 text-center bg-slate-100">Grand Total</th>
-                        </tr>
-                        <tr className="bg-white text-[9px] font-bold uppercase text-slate-400 border-b border-slate-300">
-                            <th className="p-1 border-r border-slate-300"></th>
-                            {examResults.map((exam, i) => (
-                                <React.Fragment key={i}>
-                                    <th className="p-1 border-r border-slate-200">Max</th>
-                                    <th className="p-1 border-r border-slate-300">Obt.</th>
-                                </React.Fragment>
-                            ))}
-                            <th className="p-1">Sum</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-[11px] font-bold text-slate-800">
-                        {consolidatedData.map((row, i) => (
-                            <tr key={i} className="border-b border-slate-200 last:border-0 hover:bg-slate-50/50">
-                                <td className="p-2.5 px-4 text-left uppercase border-r border-slate-300">{row.subjectName}</td>
-                                {examResults.map((exam, exI) => (
-                                    <React.Fragment key={exI}>
-                                        <td className="p-2.5 text-center border-r border-slate-200 text-slate-400">100</td>
-                                        <td className="p-2.5 text-center border-r border-slate-300 font-black italic">{row[exam.examName]}</td>
-                                    </React.Fragment>
-                                ))}
-                                <td className="p-2.5 text-center font-black bg-slate-50 italic text-indigo-600">{getSubjectTotalObtained(row)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            
-            {/* Summary Statistics */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
-                {[
-                    { label: "Grand Total", val: `${student.totalObtained} / ${student.totalMax}`, color: "text-blue-700", bg: "bg-blue-50" },
-                    { label: "Percentage", val: `${student.percentage}%`, color: "text-emerald-700", bg: "bg-emerald-50" },
-                    { label: "Final Grade", val: studentGrade, color: "text-rose-700", bg: "bg-rose-50" },
-                    { label: "Class Rank", val: `#${student.classRank}`, color: "text-purple-700", bg: "bg-purple-50" }
-                ].map((stat, i) => (
-                    <div key={i} className={`p-3 rounded-2xl border border-slate-100 ${stat.bg} text-center`}>
-                        <span className="text-[8px] font-black uppercase text-slate-400 block mb-1 tracking-widest">{stat.label}</span>
-                        <div className={`text-xl font-black italic ${stat.color}`}>{stat.val}</div>
+                {/* Remarks Section */}
+                <div className="relative z-10 mb-6 flex-grow">
+                    <p className="text-[9px] font-black uppercase text-indigo-950 mb-1.5 underline decoration-orange-400 underline-offset-2 tracking-wide flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>Class Teacher's Remarks:
+                    </p>
+                    <div className="p-4 border-2 border-dashed border-indigo-200 h-[70px] rounded bg-slate-50/30 italic text-[10px] text-slate-700 shadow-inner">
                     </div>
-                ))}
-            </div>
+                </div>
 
-            {/* Remarks Section */}
-            <div className="mb-12">
-                <p className="text-[9px] font-black uppercase text-slate-400 mb-2 px-1 tracking-widest">Class Teacher's Remarks:</p>
-                <div className="p-4 rounded-xl border border-dashed border-slate-300 italic text-slate-600 text-[11px] min-h-[60px] bg-slate-50/20">
-                    {finalRemark}
+                {/* Signature Footer */}
+                <div className="relative z-10 mt-auto grid grid-cols-3 gap-10 text-center pb-2">
+                    <div className="pt-1.5 border-t-2 border-indigo-950 group">
+                        <p className="text-[8px] font-black uppercase text-indigo-950 tracking-wider">Class Teacher Signature</p>
+                    </div>
+                    <div className="pt-1.5 border-t-2 border-orange-400">
+                        <p className="text-[8px] font-black uppercase text-orange-700 tracking-wider">Parent / Guardian</p>
+                    </div>
+                    <div className="pt-1.5 border-t-2 border-indigo-950 relative">
+                        <p className="text-[8px] font-black uppercase text-indigo-950 tracking-wider">Principal / Director</p>
+                    </div>
                 </div>
-            </div>
 
-            {/* Signature Footer */}
-            <div className="mt-auto grid grid-cols-3 gap-8 px-4 text-center">
-                <div className="border-t-2 border-slate-900 pt-2">
-                    <p className="text-[10px] font-black uppercase text-slate-800">Class Teacher</p>
-                </div>
-                <div className="border-t-2 border-slate-900 pt-2">
-                    <p className="text-[10px] font-black uppercase text-slate-800">Parent/Guardian</p>
-                </div>
-                <div className="border-t-2 border-slate-900 pt-2 relative">
-                    <p className="text-[10px] font-black uppercase text-slate-800">Principal</p>
+                {/* Footer Text */}
+                <div className="relative z-10 text-center text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-2 border-t border-slate-100 pt-1">
+                    
                 </div>
             </div>
         </div>

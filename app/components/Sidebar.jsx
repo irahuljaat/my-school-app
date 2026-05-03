@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // Added for the logo
+import Image from 'next/image';
 
 import { 
     HiChevronDown, HiOutlineAcademicCap, 
@@ -10,10 +10,10 @@ import {
     HiOutlineUserGroup, HiOutlineCurrencyDollar, 
     HiOutlineChartBar, HiOutlineLightningBolt,
     HiOutlineIdentification, HiOutlineGlobeAlt, 
-    HiOutlineBell, HiOutlineCog, HiOutlineX
+    HiOutlineBell, HiOutlineCog, HiOutlineX,
+    HiOutlineMinusSm, HiOutlinePlusSm, HiOutlineSparkles
 } from 'react-icons/hi';
 
-// Added isOpen and onClose props for mobile functionality
 const Sidebar = ({ activePath, isOpen, onClose }) => {
     // 1. Primary Navigation Items
     const primaryNav = [
@@ -21,6 +21,8 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
         { name: 'Students', icon: HiOutlineAcademicCap, path: '/students' },
         { name: 'Teachers', icon: HiOutlineUserGroup, path: '/teacher-manage' },
         { name: 'Attendance', icon: HiOutlineClipboardList, path: '/attendance' },
+        { name: 'Enquiries', icon: HiOutlineClipboardList, path: '/enquiries' },
+        { name: 'Admissions', icon: HiOutlineClipboardList, path: '/Adenquiry' },
     ];
 
     // 2. Dropdown Menus
@@ -44,61 +46,63 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
     ];
 
     const NavItem = ({ name, icon: Icon, path, subItems = [], activePath }) => {
-        const [isSubOpen, setIsSubOpen] = useState(
-            activePath && subItems.some(item => activePath.startsWith(item.path))
-        );
-
         const hasSubItems = subItems.length > 0;
         const isActive = activePath === path || subItems.some(item => activePath === item.path);
+        const [isSubOpen, setIsSubOpen] = useState(isActive);
 
         const handleClick = (e) => {
             if (hasSubItems) {
                 e.preventDefault();
                 setIsSubOpen(!isSubOpen);
             } else {
-                // Close sidebar on mobile after clicking a link
                 if (onClose) onClose();
             }
         };
 
         return (
-            <div className="mb-1">
+            <div className="mb-2">
                 <Link 
                     href={hasSubItems ? '#' : path}
                     onClick={handleClick}
-                    className={`flex items-center px-4 py-3 rounded-2xl transition-all duration-200 group ${
-                        isActive 
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
+                    className={`flex items-center px-4 py-2.5 rounded-full transition-all duration-300 group relative ${
+                        isActive && !hasSubItems 
+                        ? 'bg-black text-white shadow-xl' 
+                        : isSubOpen && hasSubItems 
+                        ? 'bg-black text-white'
+                        : 'text-zinc-500 hover:text-black hover:bg-zinc-100/50'
                     }`}
                 >
-                    <div className={`p-2 rounded-xl mr-3 transition-colors ${
-                        isActive ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600'
-                    }`}>
-                        {Icon && <Icon className="w-5 h-5" />}
-                    </div>
-                    <span className="flex-1 font-bold text-sm tracking-tight">{name}</span>
+                    <Icon className={`w-5 h-5 mr-3 ${isActive || isSubOpen ? 'text-current' : 'text-zinc-400'}`} />
+                    <span className="flex-1 font-semibold text-[13px] tracking-tight">{name}</span>
+                    
                     {hasSubItems && (
-                        <HiChevronDown className={`w-4 h-4 transition-transform duration-300 ${isSubOpen ? 'rotate-180' : ''}`} />
+                        <div className="ml-2">
+                            {isSubOpen ? <HiOutlineMinusSm className="w-4 h-4" /> : <HiOutlinePlusSm className="w-4 h-4" />}
+                        </div>
                     )}
                 </Link>
 
+                {/* Sub-menu with Vertical Thread Line - from image_0dae3b.png */}
                 {hasSubItems && isSubOpen && (
-                    <div className="ml-12 mt-2 space-y-1 border-l-2 border-slate-100 pl-4 animate-in slide-in-from-top-2 duration-300">
-                        {subItems.map(item => (
-                            <Link 
-                                key={item.name} 
-                                href={item.path}
-                                onClick={() => onClose && onClose()}
-                                className={`block py-2 text-sm font-semibold transition-colors ${
-                                    activePath === item.path 
-                                    ? 'text-indigo-600' 
-                                    : 'text-slate-400 hover:text-indigo-500'
-                                }`}
-                            >
-                                {item.name}
-                            </Link>
-                        ))}
+                    <div className="ml-6 mt-1 relative">
+                        <div className="absolute left-0 top-0 bottom-2 w-[1.5px] bg-zinc-200" />
+                        <div className="space-y-1 pt-1">
+                            {subItems.map(item => (
+                                <Link 
+                                    key={item.name} 
+                                    href={item.path}
+                                    onClick={() => onClose && onClose()}
+                                    className={`flex items-center ml-4 px-4 py-2 rounded-full text-[12px] font-bold transition-all ${
+                                        activePath === item.path 
+                                        ? 'bg-white text-black shadow-sm ring-1 ring-zinc-100' 
+                                        : 'text-zinc-400 hover:text-black'
+                                    }`}
+                                >
+                                    <div className="w-1 h-1 rounded-full bg-current mr-2 opacity-40" />
+                                    {item.name}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
@@ -107,24 +111,20 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
 
     return (
         <>
-            {/* Mobile Backdrop: Only visible when sidebar is toggled open on mobile */}
+            {/* Mobile Backdrop */}
             {isOpen && (
-                <div 
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] lg:hidden transition-opacity duration-300"
-                    onClick={onClose}
-                />
+                <div className="fixed inset-0 bg-white/60 backdrop-blur-md z-[60] lg:hidden" onClick={onClose} />
             )}
 
-            {/* Sidebar Container */}
             <aside className={`
-                fixed inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-100 h-screen overflow-y-auto 
-                flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:block shrink-0
+                fixed inset-y-0 left-0 z-[70] w-72 bg-[#F6F6F6] border-r border-zinc-200/50 h-screen 
+                flex flex-col transition-transform duration-500 ease-in-out lg:translate-x-0 lg:static lg:block shrink-0
                 ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
             `}>
-                {/* Logo Section */}
-                <div className="p-8 mb-4 flex items-center justify-between">
+                {/* Brand Header */}
+                <div className="p-8 mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 relative shrink-0 overflow-hidden rounded-xl shadow-xl shadow-indigo-100">
+                        <div className="w-10 h-10 relative shrink-0 overflow-hidden rounded-xl bg-white shadow-sm border border-zinc-100 p-1">
                             <Image 
                                 src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" 
                                 alt="MVG School Logo"
@@ -133,22 +133,19 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                                 priority
                             />
                         </div>
-                        <span className="text-xl font-black text-slate-800 tracking-tighter uppercase">MVG SCHOOL</span>
+                        <span className="text-sm font-black text-black tracking-widest uppercase">MVG SCHOOL</span>
                     </div>
                     
-                    {/* Close button - Mobile Only */}
-                    <button 
-                        onClick={onClose}
-                        className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors"
-                    >
-                        <HiOutlineX size={24} />
+                    <button onClick={onClose} className="lg:hidden p-2 text-zinc-400 hover:bg-white rounded-full">
+                        <HiOutlineX size={20} />
                     </button>
                 </div>
 
                 {/* Navigation Sections */}
-                <div className="flex-1 px-6 space-y-8 pb-10">
+                <div className="flex-1 px-6 space-y-8 pb-10 overflow-y-auto custom-scrollbar">
+                    {/* Core Section */}
                     <div>
-                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Core Management</h3>
+                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Core Management</h3>
                         <div className="space-y-1">
                             {primaryNav.map(item => (
                                 <NavItem key={item.name} {...item} activePath={activePath} />
@@ -163,8 +160,9 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                         </div>
                     </div>
 
+                    {/* Financial Section */}
                     <div>
-                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Financials</h3>
+                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Financials</h3>
                         <NavItem 
                             name="Finance" 
                             icon={HiOutlineCurrencyDollar} 
@@ -174,8 +172,9 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                         />
                     </div>
 
+                    {/* Operations Section */}
                     <div>
-                        <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Operations</h3>
+                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Operations</h3>
                         <div className="space-y-1">
                             {otherNav.map(item => (
                                 <NavItem key={item.name} {...item} activePath={activePath} />
@@ -184,19 +183,29 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                     </div>
                 </div>
 
-                {/* Footer / User Profile Brief */}
-                <div className="p-6 border-t border-slate-50 bg-slate-50/50">
-                    <div className="flex items-center gap-3 p-2">
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                {/* Profile Brief Footer */}
+                <div className="p-6">
+                    <div className="bg-white/60 backdrop-blur-sm p-3 rounded-2xl border border-white flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-[10px] shadow-lg">
                             AD
                         </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-xs font-black text-slate-700 truncate">Administrator</p>
-                            <p className="text-[10px] text-slate-400 font-bold italic">Super Admin</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-black text-black truncate uppercase">Administrator</p>
+                            <p className="text-[9px] text-zinc-400 font-bold italic">Super Admin</p>
                         </div>
                     </div>
                 </div>
             </aside>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 3px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e4e4e7;
+                    border-radius: 10px;
+                }
+            `}</style>
         </>
     );
 };
