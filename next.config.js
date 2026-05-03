@@ -1,16 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add the images configuration object here to allow Cloudinary domain
+  reactStrictMode: true,
   images: {
-    domains: [
-      // This is the standard domain used by Cloudinary for image delivery
-      'res.cloudinary.com',
-      'encrypted-tbn0.gstatic.com',
+    // remotePatterns is the preferred modern method over 'domains'
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com',
+        pathname: '**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        pathname: '**',
+      },
     ],
   },
-  // Ensure strict mode is set up
-  reactStrictMode: true,
 };
 
-// Use CommonJS export syntax
 module.exports = nextConfig;

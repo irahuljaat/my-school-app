@@ -50,47 +50,7 @@ export default function VisualArtsPage() {
         </div>
       </div>
 
-      {/* --- 2. HEADER --- */}
-      <header className={`fixed w-full z-[100] transition-all duration-700 ${isScrolled ? 'top-0 py-4 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm' : 'lg:top-10 py-8 bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-8 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 overflow-hidden shadow-sm">
-                <img src={LogoImg.src} alt="Logo" className="w-8 h-8 object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-lg font-bold tracking-tight transition-colors duration-500 ${isScrolled ? 'text-slate-900' : 'text-white'}`}>{data?.schoolName || "MVG Academy"}</span>
-              <span className="text-[9px] font-medium tracking-[0.4em] text-[#6366F1] uppercase">Creative Arts</span>
-            </div>
-          </Link>
-
-          <div className="hidden lg:flex items-center gap-2">
-            <NavItem label="Home" href="/" isScrolled={isScrolled} />
-            <NavDropdown label="Academics" isScrolled={isScrolled} items={[{ label: 'Robotics & AI', link: '/academics/robotics' }, { label: 'Visual Arts', link: '/academics/arts' }, { label: 'Faculty', link: '/About/faculty' }]} />
-            <NavItem label="Exhibition" href="#gallery" isScrolled={isScrolled} />
-            <Link href="/apply" className="ml-6 bg-[#6366F1] text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-indigo-100">Apply Now</Link>
-          </div>
-
-          <button onClick={() => setMobileMenu(true)} className={`lg:hidden p-2 ${isScrolled ? 'text-slate-900' : 'text-white'}`}><Menu size={24} /></button>
-        </div>
-      </header>
-
-      {/* --- 3. MOBILE MENU --- */}
-      <AnimatePresence>
-        {mobileMenu && (
-          <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed inset-0 z-[200] bg-white flex flex-col">
-            <div className="p-8 flex justify-between items-center border-b border-slate-50">
-              <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#6366F1]">The Studio</div>
-              <button onClick={() => setMobileMenu(false)} className="p-2 bg-slate-50 rounded-full"><X size={20} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-8 space-y-4">
-              <MobileLink label="Home" href="/" setMobileMenu={setMobileMenu} />
-              <MobileAccordion label="Departments" isOpen={activeMobileSub === 'dept'} onClick={() => setActiveMobileSub(activeMobileSub === 'dept' ? null : 'dept')} items={[{label: 'Visual Arts', href: '/academics/arts'}, {label: 'Robotics', href: '/academics/robotics'}]} setMobileMenu={setMobileMenu} />
-              <MobileLink label="Careers" href="/About/faculty#careers" setMobileMenu={setMobileMenu} />
-              <MobileLink label="Contact" href="/contact" setMobileMenu={setMobileMenu} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+     
 
       {/* --- 4. HERO: ARTISTIC EXPRESSION --- */}
       <section className="relative h-[70vh] flex items-center bg-[#fdfdfd] overflow-hidden">
@@ -137,21 +97,7 @@ export default function VisualArtsPage() {
         </div>
       </section>
 
-      {/* --- 7. FOOTER --- */}
-      <footer className="bg-white pt-32 pb-12 px-8 border-t border-slate-100">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
-            <div className="col-span-1 lg:col-span-2 space-y-8">
-                <div className="text-xl font-bold tracking-tighter italic uppercase text-[#6366F1]">MVG ACADEMY</div>
-                <p className="text-slate-400 font-light text-sm max-w-sm">Nurturing the creative spirit and building the future leaders of the global art world.</p>
-            </div>
-            <FooterCol title="Studios" items={['Traditional Lab', 'Digital Suite', 'Sculpture Garden']} />
-            <FooterCol title="Connect" items={['Virtual Gallery', 'Instagram', 'Contact']} />
-        </div>
-        <div className="max-w-7xl mx-auto pt-10 border-t border-slate-50 flex justify-between text-[9px] font-bold uppercase tracking-[0.4em] text-slate-300">
-            <span>© 2025 MVG CREATIVE ARTS</span>
-            <span>Jaipur, RJ</span>
-        </div>
-      </footer>
+      
     </div>
   );
 }

@@ -59,71 +59,6 @@ export default function AimPage() {
     <div className="bg-white text-slate-900 antialiased overflow-x-hidden font-sans">
       {/* SEO Head Implementation */}
      
-
-      {/* --- 1. HEADER (Remains consistent with your brand) --- */}
-      <header className="fixed w-full z-[100]">
-        <div className={`hidden xl:block border-b transition-all duration-500 ${
-          isScrolled ? 'bg-slate-900 border-white/5 py-1' : 'bg-black/40 backdrop-blur-md border-white/10 py-2'
-        }`}>
-          <div className="max-w-7xl mx-auto px-6 flex justify-between items-center text-white">
-            <div className="flex gap-8 items-center">
-              <a href={`tel:${data?.phone}`} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-[#6366F1]">
-                <Phone size={12} className="text-[#6366F1]" />
-                <span>{data?.phone || "+91 (141) 2345-678"}</span>
-              </a>
-              <a href={`mailto:${data?.email}`} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-[#6366F1]">
-                <Mail size={12} className="text-[#6366F1]" />
-                <span>{data?.email || "info@mvgacademy.edu"}</span>
-              </a>
-            </div>
-            <div className="flex gap-4 items-center border-l border-white/20 pl-6">
-                <Facebook size={14} className="hover:text-[#6366F1] cursor-pointer" />
-                <Instagram size={14} className="hover:text-[#6366F1] cursor-pointer" />
-            </div>
-          </div>
-        </div>
-
-        <nav className={`transition-all duration-500 ${isScrolled ? 'bg-white py-3 shadow-xl' : 'bg-transparent py-6'}`}>
-          <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-xl shadow-md p-1 border border-slate-100 flex items-center justify-center">
-                <img src={LogoImg.src} alt={`${data?.schoolName} Logo`} className="w-full h-full object-contain" />
-              </div>
-              <div className="flex flex-col">
-                <span className={`text-xl font-black uppercase tracking-tighter ${isScrolled ? 'text-slate-900' : 'text-white'}`}>
-                  {data?.schoolName || "MVG Academy"}
-                </span>
-                <span className="text-[9px] font-black text-[#6366F1] tracking-[0.3em]">JAIPUR</span>
-              </div>
-            </Link>
-
-            <div className="hidden xl:flex items-center gap-2">
-              <NavItem label="Home" href="/" isScrolled={isScrolled} />
-              <NavDropdown label="About Us" isScrolled={isScrolled} items={[
-                { label: 'About School', link: '/About' },
-                { label: 'History', link: '/About/history' },
-                { label: 'Our Mission', link: '/About/mission' },
-                { label: 'Our Vision', link: '/About/vision' },
-                { label: "Director's Desk", link: '/About/director' },
-                { label: 'Our AIM', link: '/About/aim' },
-                { label: 'Faculties', link: '/About/faculty' },
-              ]} />
-              <NavDropdown label="Academics" isScrolled={isScrolled} items={[
-                { label: 'Robotics', link: '/academics/robotics' },
-                { label: 'Visual Art', link: '/academics/visual-art' },
-                { label: 'Awards', link: '/About/awards' },
-              ]} />
-              <NavItem label="Contact" href="/contact" isScrolled={isScrolled} />
-              <Link href="/apply" className="ml-4 bg-[#6366F1] text-white px-7 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all">Apply Now!</Link>
-            </div>
-
-            <button onClick={() => setMobileMenu(true)} className={`xl:hidden p-3 rounded-xl shadow-md ${isScrolled ? 'bg-slate-100 text-slate-900' : 'bg-white text-[#6366F1]'}`}>
-              <Menu size={20} />
-            </button>
-          </div>
-        </nav>
-      </header>
-
       {/* --- 2. HERO SECTION --- */}
       <section className="relative min-h-[70vh] flex items-center bg-slate-950 overflow-hidden">
         <div className="absolute inset-0 z-0">
@@ -232,56 +167,7 @@ export default function AimPage() {
         </div>
       </section>
 
-      {/* --- 6. FOOTER (Consistent with SEO Schema) --- */}
-      <footer className="bg-white border-t border-slate-100 pt-24 pb-12 px-6 mt-20">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-            <div className="space-y-6">
-              <div className="text-2xl font-black tracking-tighter uppercase italic">{data?.schoolName || "MVG ACADEMY"}</div>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                A premier educational institution in Jaipur dedicated to providing world-class education and holistic development for over two decades.
-              </p>
-              <div className="flex gap-4">
-                <a href="#" aria-label="Facebook" className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center hover:bg-[#6366F1] hover:text-white transition-all"><Facebook size={18} /></a>
-                <a href="#" aria-label="Instagram" className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center hover:bg-[#6366F1] hover:text-white transition-all"><Instagram size={18} /></a>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-black uppercase tracking-widest text-xs mb-8 text-slate-400">Our Academy</h4>
-              <ul className="space-y-4 text-sm font-bold uppercase text-slate-500">
-                <li><Link href="/About/history" className="hover:text-[#6366F1]">Heritage & History</Link></li>
-                <li><Link href="/admission" className="hover:text-[#6366F1]">Admissions 2025</Link></li>
-                <li><Link href="/apply" className="hover:text-[#6366F1]">Join our School</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black uppercase tracking-widest text-xs mb-8 text-slate-400">Quick Links</h4>
-              <ul className="space-y-4 text-sm font-bold uppercase text-slate-500">
-                <li><Link href="/gallery" className="hover:text-[#6366F1]">Campus Tour</Link></li>
-                <li><Link href="/About/aim" className="hover:text-[#6366F1]">Educational Aim</Link></li>
-              </ul>
-            </div>
-
-            <div className="space-y-6">
-              <h4 className="font-black uppercase tracking-widest text-xs mb-8 text-slate-400">Contact Us</h4>
-              <div className="flex items-start gap-4 text-sm font-medium text-slate-600">
-                <MapPin size={20} className="text-[#6366F1] shrink-0" />
-                <address className="not-italic">{data?.address || "123 Education Lane, Jaipur"}</address>
-              </div>
-              <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
-                <Phone size={20} className="text-[#6366F1] shrink-0" />
-                <p>{data?.phone || "+91 (141) 2345-678"}</p>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 gap-4">
-            <p>© 2025 {data?.schoolName || "MVG ACADEMY"}. All Rights Reserved.</p>
-            <p>Designed for Future Leaders</p>
-          </div>
-        </div>
-      </footer>
+     
     </div>
   );
 }

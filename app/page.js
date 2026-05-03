@@ -1,11 +1,13 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../app/firebase/config'; // Adjust this path if your firebase file is elsewhere
+import Link from 'next/link';
+import Image from 'next/image';
 
 import { doc, onSnapshot , getDocs, collection, query, orderBy, limit, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ChevronDown, Menu, X, Phone, Mail, MapPin, ArrowRight, CheckCircle, Briefcase,CheckCircle2, FileDown, Navigation,
+  ChevronDown, Menu, X, Phone, Mail, MapPin, ArrowRight, CheckCircle, Briefcase,CheckCircle2, FileDown, Navigation, Loader2,
   GraduationCap, Users, BookOpen, Trophy, Calendar, Download, ChevronLeft, ChevronRight, Instagram, Facebook, Twitter, Youtube,
   Beaker, Star, ShieldCheck, Smartphone, MessageCircle, FileText, Camera, Globe , Compass
 } from 'lucide-react';
@@ -25,9 +27,14 @@ const SectionWrapper = ({ children, id }) => (
 );
 
 export default function MVGMainPortal() {
+
+  
+
   const [sliderImages, setSliderImages] = useState({});
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+  
 
   useEffect(() => {
     // 1. Fetch Slider Images
@@ -120,7 +127,7 @@ export default function MVGMainPortal() {
   return (
     <div className="bg-[#F8FAFC] text-slate-900 selection:bg-blue-600 selection:text-white antialiased">
       <PromoPopup />
-      <Navbar />
+     
       
       {/* 1. SLIDES / HERO (Dynamic from Firebase) */}
       <HeroSlider images={sliderImages} /> 
@@ -175,8 +182,7 @@ export default function MVGMainPortal() {
         <ContactSection />
       </SectionWrapper>
 
-      {/* 12. FOOTER */}
-      <Footer />
+      
     </div>
   );
 }
@@ -315,21 +321,17 @@ const PromoPopup = () => {
 
 
 
-// --- 1. HERO SLIDER (Increased Desktop Height) ---
+// --- 1. HERO SLIDER (Optimized for Millisecond Loading) ---
 const HeroSlider = ({ images }) => {
   const [current, setCurrent] = useState(0);
-  
-  const imageUrls = Object.keys(images)
-    .sort((a, b) => Number(a) - Number(b))
-    .map(key => images[key]);
 
-  // Preload images
-  useEffect(() => {
-    imageUrls.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }, [imageUrls]);
+  // Memoize URLs to prevent unnecessary recalculations
+  const imageUrls = useMemo(() => 
+    Object.keys(images)
+      .sort((a, b) => Number(a) - Number(b))
+      .map(key => images[key]),
+    [images]
+  );
 
   const nextSlide = () => {
     setCurrent((prev) => (prev === imageUrls.length - 1 ? 0 : prev + 1));
@@ -339,48 +341,49 @@ const HeroSlider = ({ images }) => {
     setCurrent((prev) => (prev === 0 ? imageUrls.length - 1 : prev - 1));
   };
 
+  // Automatic transition logic
   useEffect(() => {
-    if (imageUrls.length === 0) return;
+    if (imageUrls.length <= 1) return;
     const timer = setInterval(nextSlide, 5000);
     return () => clearInterval(timer);
-  }, [imageUrls.length, current]);
+  }, [imageUrls.length]);
 
   if (imageUrls.length === 0) return <div className="h-[50vh] bg-slate-900" />;
 
   return (
-    <section className={`
-      relative overflow-hidden bg-slate-950 transition-all duration-300
-      /* MOBILE: Rectangle ratio + starts below nav | DESKTOP: Increased Height to 90vh */
-      aspect-video md:aspect-auto md:h-[85vh] lg:h-[90vh]
-      mt-[68px] md:mt-0 
-    `}>
+    <section className="relative overflow-hidden bg-slate-950 aspect-video md:aspect-auto md:h-[85vh] lg:h-[90vh] mt-[30px] md:mt-0">
       
-      {/* 1. TOP GRADIENT (Desktop Only) */}
+      {/* 1. TOP GRADIENT (Visual Depth) */}
       <div className="hidden md:block absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-black/80 via-black/20 to-transparent z-20 pointer-events-none" />
 
-      {/* 2. SLIDER IMAGES */}
-      <AnimatePresence mode="popLayout">
+      {/* 2. OPTIMIZED SLIDER IMAGES */}
+      <AnimatePresence mode="wait">
         <motion.div 
           key={current}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.7 }}
+          transition={{ duration: 0.5 }}
           className="absolute inset-0 w-full h-full"
         >
-          <img
+          <Image
             src={imageUrls[current]}
-            className="w-full h-full object-cover"
-            style={{ 
-              /* Smart Focus: prioritized the top 15% so building tops/faces are visible */
-              objectPosition: 'center 15%' 
-            }}
-            alt={`Slide ${current}`}
+            alt={`School Slide ${current}`}
+            fill
+            /* 
+               CRITICAL: 'priority' on index 0 ensures immediate LCP loading. 
+               Lazy loading is handled automatically for other slides. 
+            */
+            priority={current === 0}
+            quality={85}
+            className="object-cover"
+            style={{ objectPosition: 'center 15%' }}
+            sizes="100vw"
           />
         </motion.div>
       </AnimatePresence>
       
-      {/* 3. BOTTOM GRADIENT (Visual Depth) */}
+      {/* 3. BOTTOM GRADIENT */}
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-20 pointer-events-none" />
       
       {/* 4. NAVIGATION BUTTONS */}
@@ -411,7 +414,6 @@ const HeroSlider = ({ images }) => {
           />
         ))}
       </div>
-      
     </section>
   );
 };
@@ -442,185 +444,38 @@ const StatsSection = ({ statsData }) => {
   );
 };
 
-// --- NAVIGATION (Mobile Fix + Solid Mobile BG) ---
-const Navbar = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [activeMenu, setActiveMenu] = useState(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const menus = [
-    { title: 'Home', items: null },
-    { title: 'About Us', items: ['About MVG', 'Vision & Mission', 'School Philosophy', "Director's Message"] },
-    { title: 'Academics', items: ['Curriculum', 'Admission', 'Fees', 'Activity Calendar'] },
-    { title: 'Achievements', items: ['Awards', 'Board Results'] },
-    { title: 'Facilities', items: null },
-    { title: 'Event & Gallery', items: null },
-    { title: 'Contact', items: null },
-    { title: 'Blog', items: null },
-  ];
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : 'unset';
-  }, [isMobileMenuOpen]);
-
-  return (
-    <>
-      {/* 1. DESKTOP/TABLET NAV BAR */}
-      <nav className={`fixed top-0 left-0 w-full z-[1000] transition-all duration-300 
-        ${/* Logic: Mobile always has color, Desktop is transparent until scroll */ ''}
-        ${isScrolled 
-            ? 'bg-white shadow-xl py-3' 
-            : 'bg-slate-900 xl:bg-transparent py-4 xl:py-6'
-        }`}>
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between">
-            
-            {/* Logo Section */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 bg-white rounded-xl overflow-hidden shadow-md border border-slate-200">
-                <img 
-                  src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" 
-                  alt="Logo" className="w-full h-full object-contain p-1" 
-                />
-              </div>
-              <span className={`font-black tracking-tighter whitespace-nowrap transition-all ${
-                isScrolled ? 'text-blue-600 text-lg' : 'text-white text-lg md:text-2xl'
-              }`}>
-                MVG <span className={isScrolled ? 'text-slate-900' : 'text-blue-400'}>Public School</span>
-              </span>
-            </div>
-
-            {/* Desktop Menu - Hidden on XL (1280px) */}
-            <div className="hidden xl:flex items-center gap-1">
-              {menus.map((m) => (
-                <div 
-                  key={m.title} 
-                  className="relative group px-2" 
-                  onMouseEnter={() => setActiveMenu(m.title)} 
-                  onMouseLeave={() => setActiveMenu(null)}
-                >
-                  <button className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-tight transition-colors whitespace-nowrap py-2 ${
-                    isScrolled ? 'text-slate-700 hover:text-blue-600' : 'text-white/90 hover:text-white'
-                  }`}>
-                    {m.title} {m.items && <ChevronDown size={12} className="opacity-50" />}
-                  </button>
-                  
-                  <AnimatePresence>
-                    {m.items && activeMenu === m.title && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} 
-                        className="absolute top-full left-0 w-56 bg-white rounded-2xl shadow-2xl p-3 border border-slate-100 mt-2"
-                      >
-                        {m.items.map(i => (
-                          <a key={i} href="#" className="block px-4 py-2.5 text-[11px] font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all">
-                            {i}
-                          </a>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile/Tablet Menu Button */}
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className={`xl:hidden p-2.5 rounded-xl border transition-all cursor-pointer ${
-                isScrolled 
-                  ? 'bg-slate-100 border-slate-200 text-slate-900' 
-                  : 'bg-white/10 border-white/20 text-white'
-              }`}
-            >
-              <Menu size={24} />
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* 2. FULLSCREEN MOBILE DRAWER */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[2000] bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <motion.div 
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} 
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()} 
-              className="absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-white shadow-2xl p-6 flex flex-col"
-            >
-              {/* Drawer Header */}
-              <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <img src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" className="w-8 h-8 object-contain" alt="logo" />
-                  <span className="font-black text-blue-600 text-lg">MVG PUBLIC</span>
-                </div>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)} 
-                  className="p-2 bg-slate-100 rounded-full text-slate-900"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Drawer Links */}
-              <div className="flex flex-col gap-1 overflow-y-auto pr-2">
-                {menus.map((m) => (
-                  <div key={m.title} className="mb-2">
-                    <button className="text-xl font-black tracking-tighter text-slate-800 flex items-center justify-between w-full uppercase italic py-3">
-                      {m.title}
-                      {m.items && <ChevronDown size={18} className="text-blue-600 opacity-50" />}
-                    </button>
-                    {m.items && (
-                      <div className="grid grid-cols-1 gap-1 pl-4 mb-4 border-l-2 border-blue-50">
-                        {m.items.map(item => (
-                          <a key={item} href="#" className="text-sm font-bold text-slate-400 py-2 hover:text-blue-600">
-                            {item}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Drawer Footer */}
-              <div className="mt-auto pt-8 border-t border-slate-100">
-                <button className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 mb-4">
-                  Student Portal
-                </button>
-                <div className="text-[10px] text-center font-bold text-slate-400 uppercase tracking-widest">
-                  Jaipur • Since 2005
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
-};
-
 // --- REMAINING UI SECTIONS (KEEPING YOUR EXACT UI) ---
 const AboutSection = () => (
-  <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+  <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center px-6">
     <div>
-      <h2 className="text-5xl font-black tracking-tighter mb-8 leading-tight text-slate-900">Welcome to <br/> <span className="text-blue-600">MVG Public School</span></h2>
-      <p className="text-lg text-slate-500 font-medium leading-relaxed mb-6 italic">"Your Child’s Second Home"</p>
-      <p className="text-slate-500 font-medium leading-relaxed mb-10">At MVG Public School, every morning begins with a smile and a new opportunity to grow. We believe in nurturing not just students, but the leaders of tomorrow. Our vibrant campus is a place where creativity is celebrated, and every child is given the tools to shine. We welcome you to join our growing family!</p>
-      <button className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-blue-600 hover:text-slate-900">Read Welcome Message <ArrowRight size={16}/></button>
+      <h2 className="text-5xl font-black tracking-tighter mb-8 leading-tight text-slate-900">
+        Welcome to <br/> <span className="text-blue-600">MVG Public School</span>
+      </h2>
+      <p className="text-lg text-slate-500 font-medium leading-relaxed mb-6 italic">
+        "Your Child’s Second Home"
+      </p>
+      <p className="text-slate-500 font-medium leading-relaxed mb-10">
+        At MVG Public School, every morning begins with a smile and a new opportunity to grow. We believe in nurturing not just students, but the leaders of tomorrow. Our vibrant campus is a place where creativity is celebrated, and every child is given the tools to shine. We welcome you to join our growing family!
+      </p>
+      <button className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-blue-600 hover:text-slate-900">
+        Read Welcome Message <ArrowRight size={16}/>
+      </button>
     </div>
-    <div className="rounded-[60px] overflow-hidden shadow-2xl border-[15px] border-white">
-      <img src="https://res.cloudinary.com/db6ssceun/image/upload/v1772107780/12_tz2xx7.png" className="w-full h-full object-cover" alt="Welcome" />
+
+    {/* OPTIMIZED IMAGE CONTAINER */}
+    <div className="rounded-[60px] overflow-hidden shadow-2xl border-[15px] border-white relative aspect-[4/5] lg:aspect-square">
+      <Image 
+        src="https://res.cloudinary.com/db6ssceun/image/upload/v1772107780/12_tz2xx7.png" 
+        alt="Welcome to MVG Public School"
+        fill
+        className="object-cover"
+        /* 
+          Using 'sizes' tells the browser that on mobile it's 100% width,
+          but on desktop, it only takes up about 50% of the screen.
+        */
+        sizes="(max-width: 768px) 100vw, 50vw"
+        quality={90}
+      />
     </div>
   </div>
 );
@@ -649,9 +504,11 @@ const VisionProspectus = () => (
     </div>
     <div className="bg-slate-900 rounded-[50px] p-12 text-center text-white relative overflow-hidden">
       <h4 className="text-2xl font-black mb-6">Want to know more about our legacy?</h4>
-      <button className="bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 mx-auto hover:bg-blue-500 hover:text-white transition-all">
-        <Download size={18}/> Download Prospectus 2026
-      </button>
+      <Link href="/Academics/prospectus" className="w-fit mx-auto block">
+  <button className="bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-blue-500 hover:text-white transition-all shadow-xl">
+    <Download size={18}/> View Prospectus 
+  </button>
+</Link>
     </div>
   </div>
 );
@@ -709,19 +566,7 @@ const StreamsSection = () => {
       points: ["Modern STEM Laboratories",  "Diverse Career Opportunities", "Practical Research Expo"],
       scope: "The Science stream at our school prepares students for high-stakes careers in technology, medicine, and research, ensuring they stay ahead in a global landscape."
     },
-    {
-      title: "Commerce",
-      id: "commerce-stream",
-      seoKeyword: "Commerce Stream with Maths in Jaipur",
-      icon: <Briefcase className="text-emerald-600" size={28} />,
-      bg: "bg-emerald-50/50",
-      accent: "bg-emerald-600",
-      intro: "Developing the financial leaders of tomorrow. Our Commerce stream with Maths program bridges the gap between textbooks and the real-world economy.",
-      subjects: ["Accountancy", "Economics", "Business Studies", "Applied Maths", "English"],
-      careers: ["Chartered Accountancy", "Investment Banking", "Corporate Law", "Management (BBA/MBA)"],
-      points: ["Strong Foundation in Business & Finance", "Wide Career Opportunities", "Practical and Useful Subjects", "Suitable for Competitive Exams"],
-      scope: "With India's economic rise, Commerce graduates from top schools in Rajasthan are finding massive opportunities in global finance and startup ecosystems."
-    },
+    
     {
       title: "Humanities",
       id: "humanities-stream",
@@ -820,10 +665,12 @@ const StreamsSection = () => {
                   Apply for Admission
                   <ArrowRight size={14} />
                 </button>
-                <button className="w-full bg-white border-2 border-slate-100 text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                  <FileDown size={14} />
-                  Download Prospectus
-                </button>
+                <Link href="/Academics/prospectus" className="w-full block">
+  <button className="w-full bg-white border-2 border-slate-100 text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
+    <FileDown size={14} />
+    View Prospectus
+  </button>
+</Link>
               </div>
 
               {/* Hidden SEO Data */}
@@ -845,7 +692,6 @@ const StreamsSection = () => {
 };
 
 
-
 const GallerySection = () => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -853,25 +699,18 @@ const GallerySection = () => {
   useEffect(() => {
     const fetchAllGalleryData = async () => {
       try {
-        // 1. Reference the whole collection instead of one doc
         const querySnapshot = await getDocs(collection(db, "gallery"));
-        
-        // 2. Get all docs and sort them by ID (Date) descending (Newest first)
         const allDocs = querySnapshot.docs.sort((a, b) => b.id.localeCompare(a.id));
 
         let combinedImages = [];
-
-        // 3. Loop through documents and grab images from each
         allDocs.forEach((doc) => {
           const data = doc.data();
-          // Extract image1, image2, etc., from each date document
           const docImages = [
             data.image1,
             data.image2,
             data.image3,
             data.image4
-          ].filter(link => link); // Only keep valid links
-          
+          ].filter(link => link);
           combinedImages = [...combinedImages, ...docImages];
         });
 
@@ -895,55 +734,63 @@ const GallerySection = () => {
         <div className="flex justify-between items-end mb-12">
           <div>
             <span className="text-blue-600 font-black uppercase tracking-[0.3em] text-[10px] mb-2 block">Visual Journey</span>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter italic text-slate-900 leading-none">CAMPUS LIFE</h2>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tighter italic text-slate-900 leading-none uppercase">CAMPUS LIFE</h2>
           </div>
           
-          {/* VIEW ALL BUTTON - Redirects to /gallery */}
-          <a 
+          <Link 
             href="/gallery" 
             className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 border-b-2 border-blue-600 pb-1 hover:text-slate-900 hover:border-slate-900 transition-all"
           >
             View All Photos
             <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-          </a>
+          </Link>
         </div>
 
-        {/* Bento Grid - Showing the most recent 4 images from the combined collection */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:h-[600px]">
+        {/* Bento Grid - Optimized with Next.js Image */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 h-[500px] md:h-[600px]">
           
           {/* image1 - Large Feature */}
-          <div className="col-span-2 row-span-2 rounded-[40px] overflow-hidden shadow-2xl bg-slate-100">
-            <img 
+          <div className="col-span-2 row-span-2 rounded-[40px] overflow-hidden shadow-2xl bg-slate-100 relative group">
+            <Image 
               src={images[0]} 
-              className="w-full h-full object-cover hover:scale-105 transition-all duration-1000" 
               alt="Recent Campus Activity" 
+              fill
+              className="object-cover group-hover:scale-105 transition-all duration-1000"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority // Priority loading for the largest image
             />
           </div>
 
           {/* image2 */}
-          <div className="rounded-[30px] overflow-hidden shadow-lg bg-slate-100">
-            <img 
+          <div className="rounded-[30px] overflow-hidden shadow-lg bg-slate-100 relative group">
+            <Image 
               src={images[1]} 
-              className="w-full h-full object-cover hover:scale-105 transition-all duration-1000" 
               alt="Campus 2" 
+              fill
+              className="object-cover group-hover:scale-105 transition-all duration-1000"
+              sizes="(max-width: 768px) 50vw, 25vw"
             />
           </div>
 
           {/* image3 */}
-          <div className="rounded-[30px] overflow-hidden shadow-lg bg-slate-100">
-            <img 
+          <div className="rounded-[30px] overflow-hidden shadow-lg bg-slate-100 relative group">
+            <Image 
               src={images[2]} 
-              className="w-full h-full object-cover hover:scale-105 transition-all duration-1000" 
               alt="Campus 3" 
+              fill
+              className="object-cover group-hover:scale-105 transition-all duration-1000"
+              sizes="(max-width: 768px) 50vw, 25vw"
             />
           </div>
 
           {/* image4 - Horizontal Wide */}
-          <div className="col-span-2 rounded-[30px] overflow-hidden h-[240px] md:h-auto shadow-lg bg-slate-100">
-            <img 
+          <div className="col-span-2 rounded-[30px] overflow-hidden shadow-lg bg-slate-100 relative group">
+            <Image 
               src={images[3]} 
-              className="w-full h-full object-cover hover:scale-105 transition-all duration-1000" 
               alt="Campus 4" 
+              fill
+              className="object-cover group-hover:scale-105 transition-all duration-1000"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
           </div>
         </div>
@@ -951,6 +798,7 @@ const GallerySection = () => {
     </section>
   );
 };
+
 
 const BlogSection = () => {
   const [posts, setPosts] = useState([]);
@@ -1056,16 +904,70 @@ const BlogSection = () => {
   </div>
 ); */
 
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Saves to 'inquiries' collection in Firestore
+      await addDoc(collection(db, "enquiries"), {
+        ...formData,
+        status: 'new',
+        createdAt: serverTimestamp(),
+      });
+      
+      setSubmitted(true);
+      setFormData({ studentName: '', parentContact: '', email: '', applyingClass: '', message: '' });
+    } catch (error) {
+      console.error("Error saving inquiry:", error);
+      alert("Submission failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
 const ContactSection = () => {
-  const mapSource = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3561.23456789!2d75.8123456!3d26.8123456!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x396db60000000001%3A0x0!2sSector%2011%2C%20Pratap%20Nagar%2C%20Jaipur!5e0!3m2!1sen!2sin!4v1700000000000";
-  const directionsUrl = "https://maps.app.goo.gl/YourActualGoogleMapsLink";
+  // CONFIGURATION
+  const mapSource = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3560.9806997465485!2d75.81411117588428!3d26.80874316455012!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x396dc9f258d6df6b%3A0x8972ac082c7833!2sMVG%20Public%20Sr.%20Sec.%20School!5e0!3m2!1sen!2sin!4v1777779961272!5m2!1sen!2sin";
+  const directionsUrl = "https://maps.app.goo.gl/moUQmATKTDDdUbS16";
 
   const socialLinks = [
-    { name: 'Instagram', url: '#', icon: <Instagram size={20} />, color: 'hover:bg-pink-600' },
-    { name: 'Facebook', url: '#', icon: <Facebook size={20} />, color: 'hover:bg-blue-700' },
-    { name: 'Twitter', url: '#', icon: <Twitter size={20} />, color: 'hover:bg-sky-500' },
-    { name: 'YouTube', url: '#', icon: <Youtube size={20} />, color: 'hover:bg-red-600' }
+    { name: 'Instagram', url: 'https://www.instagram.com/mvgpublicschool/', icon: <Instagram size={20} />, color: 'hover:bg-pink-600' },
+    { name: 'Facebook', url: 'https://www.facebook.com/mvgpublicschool/', icon: <Facebook size={20} />, color: 'hover:bg-blue-700' },
+    { name: 'YouTube', url: 'https://www.youtube.com/@mvgpublicschool', icon: <Youtube size={20} />, color: 'hover:bg-red-600' }
   ];
+
+  // STATE
+  const [loading, setLoading] = useState(false); 
+  const [submitted, setSubmitted] = useState(false);
+  const [formData, setFormData] = useState({
+    studentName: '',
+    parentContact: '',
+    email: '',
+    applyingClass: '',
+    message: ''
+  });
+
+  // HANDLER
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await addDoc(collection(db, "inquiries"), {
+        ...formData,
+        status: 'new',
+        createdAt: serverTimestamp(),
+      });
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Error saving inquiry:", error);
+      alert("Submission failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <section className="py-24 px-6 bg-slate-50">
@@ -1074,7 +976,9 @@ const ContactSection = () => {
         {/* HEADER */}
         <div className="text-center mb-16">
           <span className="text-blue-600 font-black uppercase tracking-[0.3em] text-[10px] mb-2 block">Admission & Support</span>
-          <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 uppercase italic">Connect <span className="text-blue-600 font-outline-2">With Us</span></h2>
+          <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 uppercase italic">
+            Connect <span className="text-blue-600">With Us</span>
+          </h2>
         </div>
 
         <div className="grid lg:grid-cols-12 gap-12 items-start">
@@ -1097,7 +1001,7 @@ const ContactSection = () => {
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0"><Phone size={22}/></div>
                   <div>
                     <h4 className="font-black text-slate-400 uppercase text-[9px] tracking-widest mb-1">Admission Helpline</h4>
-                    <p className="text-slate-700 font-bold text-sm">+91 141-3152600</p>
+                    <p className="text-slate-700 font-bold text-sm">+91 141-3152600, 9829018332, 8875646366</p>
                   </div>
                 </div>
 
@@ -1105,7 +1009,7 @@ const ContactSection = () => {
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0"><Mail size={22}/></div>
                   <div>
                     <h4 className="font-black text-slate-400 uppercase text-[9px] tracking-widest mb-1">Email Inquiry</h4>
-                    <p className="text-slate-700 font-bold text-sm text-break">contact@mvgpublicschool.com</p>
+                    <p className="text-slate-700 font-bold text-sm break-all">contact@mvgpublicschool.com</p>
                   </div>
                 </div>
               </div>
@@ -1127,168 +1031,120 @@ const ContactSection = () => {
             <div className="relative h-[300px] rounded-[40px] overflow-hidden shadow-sm group border-4 border-white">
               <iframe src={mapSource} className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700" style={{ border: 0 }} allowFullScreen="" loading="lazy" />
               <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-transparent transition-all" />
-              <a href={directionsUrl} target="_blank" className="absolute bottom-6 left-6 right-6 bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-xl hover:bg-blue-600 hover:text-white transition-all">
+              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-6 left-6 right-6 bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-xl hover:bg-blue-600 hover:text-white transition-all">
                 <Navigation size={14} /> Get Directions
               </a>
             </div>
           </div>
 
-          {/* RIGHT: INQUIRY FORM (8 Cols) */}
-          <div className="lg:col-span-8 bg-white p-8 md:p-12 rounded-[50px] shadow-xl shadow-blue-900/5 border border-white">
-            <div className="mb-10">
-              <h3 className="text-2xl font-black text-slate-900 uppercase italic">Inquiry <span className="text-blue-600">Form</span></h3>
-              <p className="text-slate-400 text-xs font-bold mt-2 uppercase tracking-wider">Fill this form and our counselor will call you back</p>
-            </div>
-
-            <form className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Student Name</label>
-                <input type="text" placeholder="Enter Full Name" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Parent Contact</label>
-                <input type="tel" placeholder="+91 00000 00000" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Email Address</label>
-                <input type="email" placeholder="example@mail.com" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Applying for Class</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white appearance-none">
-                  <option>Select Class</option>
-                  <option>Grade 11 - Science</option>
-                  <option>Grade 11 - Commerce</option>
-                  <option>Grade 11 - Arts</option>
-                  <option>Other Grades</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Your Message</label>
-                <textarea rows="4" placeholder="How can we help you?" className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white resize-none" />
-              </div>
-
-              <div className="md:col-span-2 mt-4">
-                <button className="w-full bg-blue-600 text-white p-5 rounded-[20px] font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-blue-600/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 group">
-                  Submit Application <ArrowRight size={16} className="group-hover:translate-x-2 transition-transform"/>
+          {/* RIGHT: FORM OR SUCCESS MESSAGE (8 Cols) */}
+          <div className="lg:col-span-8">
+            {submitted ? (
+              <div className="bg-white p-12 rounded-[50px] shadow-xl border border-slate-100 flex flex-col items-center justify-center text-center space-y-4 min-h-[550px]">
+                <CheckCircle2 size={60} className="text-green-500 animate-bounce" />
+                <h3 className="text-3xl font-black text-slate-900 uppercase italic">Inquiry <span className="text-blue-600">Received!</span></h3>
+                <p className="text-slate-500 font-medium">Our counselor will call you shortly on {formData.parentContact}.</p>
+                <button 
+                  onClick={() => setSubmitted(false)} 
+                  className="text-blue-600 font-black uppercase text-[10px] tracking-widest pt-4 hover:underline"
+                >
+                  Send another inquiry
                 </button>
               </div>
-            </form>
-          </div>
+            ) : (
+              <div className="bg-white p-8 md:p-12 rounded-[50px] shadow-xl shadow-blue-900/5 border border-white">
+                <div className="mb-10">
+                  <h3 className="text-2xl font-black text-slate-900 uppercase italic">Inquiry <span className="text-blue-600">Form</span></h3>
+                  <p className="text-slate-400 text-xs font-bold mt-2 uppercase tracking-wider">Fill this form and our counselor will call you back</p>
+                </div>
 
+                <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Student Name</label>
+                    <input 
+                      required
+                      type="text" 
+                      placeholder="Enter Full Name" 
+                      value={formData.studentName}
+                      onChange={(e) => setFormData({...formData, studentName: e.target.value})}
+                      className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Parent Contact</label>
+                    <input 
+                      required
+                      type="tel" 
+                      placeholder="+91 00000 00000" 
+                      value={formData.parentContact}
+                      onChange={(e) => setFormData({...formData, parentContact: e.target.value})}
+                      className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Email Address</label>
+                    <input 
+                      required
+                      type="email" 
+                      placeholder="example@mail.com" 
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Applying for Class</label>
+                    <select 
+                      required
+                      value={formData.applyingClass}
+                      onChange={(e) => setFormData({...formData, applyingClass: e.target.value})}
+                      className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white appearance-none"
+                    >
+                      <option value="">Select Class</option>
+                      <option>Grade 11 - Science</option>
+                      <option>Grade 11 - Commerce</option>
+                      <option>Grade 11 - Arts</option>
+                      <option>Other Grades</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Your Message</label>
+                    <textarea 
+                      rows="4" 
+                      placeholder="How can we help you?" 
+                      value={formData.message}
+                      onChange={(e) => setFormData({...formData, message: e.target.value})}
+                      className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-600 font-bold text-slate-700 transition-all border border-transparent focus:bg-white resize-none" 
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 mt-4">
+                    <button 
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-blue-600 text-white p-5 rounded-[20px] font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-blue-600/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
+                    >
+                      {loading ? (
+                        <Loader2 className="animate-spin" size={18} />
+                      ) : (
+                        <>Submit Application <ArrowRight size={16} className="group-hover:translate-x-2 transition-transform"/></>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>
   );
 };
 
-const Footer = () => {
-  const socialIcons = [
-    { name: 'FB', icon: <Facebook size={18} />, color: 'hover:bg-blue-600' },
-    { name: 'IG', icon: <Instagram size={18} />, color: 'hover:bg-pink-600' },
-    { name: 'YT', icon: <Youtube size={18} />, color: 'hover:bg-red-600' },
-    
-  ];
 
-  return (
-    <footer className="py-16 px-6 bg-white border-t border-slate-100 relative overflow-hidden">
-      {/* Background Subtle Logo Watermark */}
-      <div className="absolute -right-10 -bottom-10 opacity-[0.03] pointer-events-none">
-        <img src="/logo.png" alt="" className="w-64 h-64 grayscale" />
-      </div>
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className="grid md:grid-cols-4 gap-12 mb-16">
-          
-          {/* COLUMN 1: BRANDING & LOGO */}
-          <div className="col-span-1">
-            <div className="flex items-center gap-4 mb-6">
-               {/* Replace src with your actual logo path */}
-               <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center p-2 shadow-sm">
-                  <img src="/logo.png" alt="MVG Logo" className="w-full h-full object-contain" />
-               </div>
-               <div>
-                  <h2 className="text-xl font-black tracking-tighter text-slate-900 leading-tight uppercase italic">
-                    MVG <br /><span className="text-blue-600">Public School</span>
-                  </h2>
-               </div>
-            </div>
-            <p className="text-slate-400 font-bold text-[11px] leading-relaxed italic border-l-2 border-blue-600 pl-4">
-              "Nurturing character, building wisdom, and shaping the global leaders of tomorrow."
-            </p>
-          </div>
 
-          {/* COLUMN 2: QUICK LINKS */}
-          <div>
-            <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-8">Navigation</h4>
-            <div className="flex flex-col gap-4 text-[11px] font-black uppercase tracking-widest text-slate-600">
-              <a href="#about" className="hover:text-blue-600 transition-all flex items-center gap-2 group">
-                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full scale-0 group-hover:scale-100 transition-transform" /> 
-                About School
-              </a>
-              <a href="#admissions" className="hover:text-blue-600 transition-all flex items-center gap-2 group">
-                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full scale-0 group-hover:scale-100 transition-transform" /> 
-                Admission Policy
-              </a>
-              <a href="#careers" className="hover:text-blue-600 transition-all flex items-center gap-2 group">
-                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full scale-0 group-hover:scale-100 transition-transform" /> 
-                Careers
-              </a>
-              <a href="#fees" className="hover:text-blue-600 transition-all flex items-center gap-2 group">
-                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full scale-0 group-hover:scale-100 transition-transform" /> 
-                Fee Structure
-              </a>
-            </div>
-          </div>
-
-          {/* COLUMN 3: CAMPUS INFO */}
-          <div>
-            <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-8">Campus Visit</h4>
-            <div className="space-y-4">
-              <p className="text-slate-500 font-bold text-[11px] leading-loose uppercase">
-                Sector 11, Pratap Nagar,<br />
-                Sanganer, Jaipur, RJ<br />
-                302033
-              </p>
-              <div className="flex items-center gap-2">
-                <Phone size={14} className="text-blue-600" />
-                <p className="text-slate-900 font-black text-xs tracking-widest">+91 141-3152600</p>
-              </div>
-            </div>
-          </div>
-
-          {/* COLUMN 4: CONNECT */}
-          <div>
-            <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-8">Connect With Us</h4>
-            <div className="flex flex-wrap gap-3">
-              {socialIcons.map((s) => (
-                <div 
-                  key={s.name} 
-                  className={`w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 ${s.color} hover:text-white hover:-translate-y-1 transition-all duration-300 cursor-pointer shadow-sm border border-slate-100`}
-                >
-                  {s.icon}
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* BOTTOM BAR */}
-        <div className="pt-10 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">
-            © 2026 MVG Public School JAIPUR
-          </div>
-          <div className="flex gap-8">
-            <a href="#" className="text-[9px] font-black text-slate-300 uppercase tracking-widest hover:text-blue-600 transition-all">Privacy Policy</a>
-            <a href="#" className="text-[9px] font-black text-slate-300 uppercase tracking-widest hover:text-blue-600 transition-all">Terms of Use</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-};

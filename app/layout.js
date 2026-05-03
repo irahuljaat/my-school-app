@@ -28,7 +28,6 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  // Structured Data for Google Search
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "School",
@@ -51,13 +50,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        {/* Injecting Local SEO Schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* MainLayout will decide whether to show the Navbar */}
         <MainLayout>
           {children}
         </MainLayout>
