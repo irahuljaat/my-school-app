@@ -81,7 +81,7 @@ const Footer = () => {
             <div className="absolute top-4 right-4 text-blue-500/30 group-hover:text-blue-500 transition-colors">
               <ArrowUpRight size={24} />
             </div>
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-2">2026-27 Session</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-2"></h4>
             <h3 className="text-xl font-bold mb-4">Admissions Open</h3>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-8 leading-loose">
               Limited seats available for English Medium curriculum.
