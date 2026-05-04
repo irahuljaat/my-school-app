@@ -77,7 +77,7 @@ const Header = ({ onMenuClick }) => {
                                 {user.name}
                             </p>
                             <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                                Master Admin
+                                MVG Public School
                             </p>
                         </div>
                         

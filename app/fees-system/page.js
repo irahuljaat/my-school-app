@@ -111,28 +111,32 @@ export default function FeesSystemPage() {
 
     useEffect(() => { fetchFeeData(); }, [fetchFeeData]);
 
-    const detailedStudentList = useMemo(() => {
-        return students
-            .filter(s => {
-                const matchesSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesType = showOnlyDummy ? s.isDummy === true : (s.isDummy === false || s.isDummy === undefined);
-                return matchesSearch && matchesType;
-            })
-            .map(s => {
-                const pDoc = annualPayments[s.id] || { totalFee: baseClassFee, paidAmount: 0, relaxationAmount: 0, history: {} };
-                const finalTotalFee = pDoc.totalFee > 0 ? pDoc.totalFee : baseClassFee;
-                
-                return { 
-                    ...s, 
-                    totalFee: finalTotalFee, 
-                    totalPaid: pDoc.paidAmount, 
-                    relaxation: pDoc.relaxationAmount,
-                    balanceDue: finalTotalFee - (pDoc.paidAmount + pDoc.relaxationAmount),
-                    history: pDoc.history
-                };
-            })
-            .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    }, [students, baseClassFee, annualPayments, searchTerm, showOnlyDummy]);
+   const detailedStudentList = useMemo(() => {
+    return students
+        .filter(s => {
+            const matchesSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesType = showOnlyDummy ? s.isDummy === true : (s.isDummy === false || s.isDummy === undefined);
+            return matchesSearch && matchesType;
+        })
+        .map(s => {
+            const pDoc = annualPayments[s.id] || { totalFee: baseClassFee, paidAmount: 0, relaxationAmount: 0, history: {} };
+            
+            // RTE Logic: If isRte is true, the fee is effectively 0
+            const isStudentRte = s.isRte === true;
+            const finalTotalFee = isStudentRte ? 0 : (pDoc.totalFee > 0 ? pDoc.totalFee : baseClassFee);
+            
+            return { 
+                ...s, 
+                isRte: isStudentRte, // Ensure it's passed down
+                totalFee: finalTotalFee, 
+                totalPaid: pDoc.paidAmount, 
+                relaxation: pDoc.relaxationAmount,
+                balanceDue: isStudentRte ? 0 : (finalTotalFee - (pDoc.paidAmount + pDoc.relaxationAmount)),
+                history: pDoc.history
+            };
+        })
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+}, [students, baseClassFee, annualPayments, searchTerm, showOnlyDummy]);
 
     // --- STRUCTURE LOGIC ---
     const totalStructureAmount = useMemo(() => {
@@ -306,62 +310,107 @@ export default function FeesSystemPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {detailedStudentList.map(s => (
-                                <tr key={s.id} className="hover:bg-indigo-50/20 transition-colors group">
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <HiUserCircle className="w-8 h-8 text-slate-200 group-hover:text-indigo-200 transition-colors" />
-                                            <span className="font-black text-slate-700 uppercase">{s.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5 text-right font-bold text-slate-400 text-sm">
-                                        {formatCurrency(s.totalFee)}
-                                    </td>
-                                    <td className="px-8 py-5 text-right font-black text-emerald-600">
-                                        {formatCurrency(s.totalPaid)}
-                                    </td>
-                                    <td className="px-8 py-5 text-right font-black text-rose-500">
-                                        {formatCurrency(s.relaxation)}
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black ${s.balanceDue > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                            {s.balanceDue > 0 ? <HiExclamationCircle className="w-3.5 h-3.5" /> : <HiCheckCircle className="w-3.5 h-3.5" />}
-                                            {formatCurrency(s.balanceDue)}
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
+    {detailedStudentList.map(s => (
+        <tr key={s.id} className="hover:bg-indigo-50/20 transition-colors group">
+            <td className="px-8 py-5">
+                <div className="flex items-center gap-3">
+                    <HiUserCircle className="w-8 h-8 text-slate-200 group-hover:text-indigo-200 transition-colors" />
+                    <div className="flex flex-col">
+                        <span className="font-black text-slate-700 uppercase">{s.name}</span>
+                        {s.isRte && (
+                            <span className="text-[9px] w-fit bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-black tracking-widest mt-0.5">
+                                RTE ADMISSION
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </td>
+            <td className="px-8 py-5 text-right">
+                {s.isRte ? (
+                    <span className="text-xs font-black text-emerald-500 uppercase tracking-tighter bg-emerald-50 px-3 py-1 rounded-lg">
+                        Free
+                    </span>
+                ) : (
+                    <span className="font-bold text-slate-400 text-sm">
+                        {formatCurrency(s.totalFee)}
+                    </span>
+                )}
+            </td>
+            {/* Rest of your columns (Paid, Relaxation, Balance, Actions) remain the same */}
+            <td className="px-8 py-5 text-right font-black text-emerald-600">
+                {formatCurrency(s.totalPaid)}
+            </td>
+            <td className="px-8 py-5 text-right font-black text-rose-500">
+                {formatCurrency(s.relaxation)}
+            </td>
+            <td className="px-8 py-5 text-right">
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black ${s.balanceDue > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {s.balanceDue > 0 ? <HiExclamationCircle className="w-3.5 h-3.5" /> : <HiCheckCircle className="w-3.5 h-3.5" />}
+                    {formatCurrency(s.balanceDue)}
+                </div>
+            </td>
+            <td className="px-8 py-5">
+
                                         <div className="flex justify-center gap-2">
+
                                             <button 
+
                                                 onClick={() => { setSelectedStudent(s); setIsPaymentModalOpen(true); }} 
+
                                                 className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+
                                             >
+
                                                 <HiCash className="w-5 h-5"/>
+
                                             </button>
+
                                             <button 
+
                                                 onClick={() => {
+
                                                     setSelectedStudent(s);
+
                                                     const hist = Object.entries(s.history || {}).map(([date, amount]) => ({
+
                                                         id: date,
+
                                                         date: date,
+
                                                         amount: Number(amount),
+
                                                         createdAt: { seconds: parseFirestoreDate(date).getTime() / 1000 }
+
                                                     })).sort((a, b) => b.createdAt.seconds - a.createdAt.seconds); 
+
                                                     
+
                                                     setFeeHistory(hist);
+
                                                     if(hist.length > 0) { 
+
                                                         setReceiptData({ ...hist[0], name: s.name }); 
+
                                                         setShowReceipt(true); 
+
                                                     } else alert("No payment history found.");
+
                                                 }} 
+
                                                 className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all"
+
                                             >
+
                                                 <HiClock className="w-5 h-5"/>
+
                                             </button>
+
                                         </div>
+
                                     </td>
-                                </tr>
-                            ))}
-                        </tbody>
+        </tr>
+    ))}
+</tbody>
                     </table>
                 </div>
             </div>

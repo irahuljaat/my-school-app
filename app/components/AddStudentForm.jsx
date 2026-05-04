@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import BulkAdmissionManager from './BulkAdmissionManager'; 
 import { 
     HiOutlineUserAdd, 
@@ -8,8 +8,8 @@ import {
     HiOutlinePhotograph, 
     HiOutlineAcademicCap, 
     HiOutlineX,
-    HiOutlineDatabase,
-    HiOutlineLightningBolt 
+    HiOutlineLightningBolt,
+    HiOutlineCheckCircle
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
@@ -17,25 +17,26 @@ import { doc, setDoc } from 'firebase/firestore';
 const STREAMS_DATA = {
     "Science (Medical)": ["Physics", "Chemistry", "Biology"],
     "Science (Non-Medical)": ["Physics", "Chemistry", "Mathematics"],
-    "Commerce": ["", "", ""], 
-    "Arts": ["", "", ""]     
+    "Commerce": ["Accountancy", "Business Studies", "Economics"], 
+    "Arts": ["History", "Geography", "Pol. Science"]     
 };
 
 const RELIGIONS = ["Hindu", "Muslim", "Sikh", "Christian", "Other"];
 const CLASSES = ["LKG" , "UKG" , "PREP" , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const GENDERS = ["Male", "Female", "Other"];
-// ADD THIS LINE:
 const CASTE_CATEGORIES = ["General", "OBC", "SC", "ST", "SBC", "Other"];
 
-function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
+// Memoized content for performance
+const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession }) => {
     const [formData, setFormData] = useState({ 
         srNo: '',  
-        admissionDate: new Date().toISOString().split('T')[0], // Default to today
+        rollNumber: '', // Added rollNumber state
+        admissionDate: new Date().toISOString().split('T')[0],
         name: '', 
         grade: '', 
         dob: '', 
         gender: '',
-        Category: '',
+        caste: '', 
         aadhaarNumber: '',
         fatherName: '', 
         motherName: '', 
@@ -47,7 +48,8 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
         optSubject2: '',
         optSubject3: '',
         imageUrl: null, 
-        isDummy: false, 
+        isDummy: false,
+        isRte: false,
     });
     
     const [loading, setLoading] = useState(false);
@@ -93,8 +95,8 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const toggleDummy = (val) => {
-        setFormData(prev => ({ ...prev, isDummy: val }));
+    const toggleStatus = (field, val) => {
+        setFormData(prev => ({ ...prev, [field]: val }));
     };
 
     const handleSubmit = async (e) => {
@@ -109,13 +111,14 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
             const studentData = {
                 id: generatedId,
                 srNo: parseInt(formData.srNo),
-                admissionDate: formData.admissionDate, // New
+                rollNumber: formData.rollNumber, // Saving rollNumber to Firestore
+                admissionDate: formData.admissionDate,
                 name: formData.name,
                 grade: String(formData.grade), 
                 dob: formData.dob,
-                gender: formData.gender, // New
-                Category: formData.Category, // New
-                aadhaarNumber: formData.aadhaarNumber, // New
+                gender: formData.gender,
+                caste: formData.caste,
+                aadhaarNumber: formData.aadhaarNumber,
                 religion: formData.religion,
                 fatherName: formData.fatherName,
                 motherName: formData.motherName,
@@ -123,6 +126,7 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
                 address: formData.address,
                 imageUrl: formData.imageUrl,
                 isDummy: formData.isDummy,
+                isRte: formData.isRte,
                 session: activeSession, 
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -154,24 +158,41 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
                             {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Student" /> : <HiOutlinePhotograph className="w-10 h-10 text-slate-300" />}
                             <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                         </div>
-                        <div className="w-full bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col gap-1">
-                            <label className="text-[8px] font-black text-slate-400 uppercase text-center mb-1">Entry Type</label>
-                            <div className="grid grid-cols-2 gap-1">
-                                <button type="button" onClick={() => toggleDummy(false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isDummy ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Regular</button>
-                                <button type="button" onClick={() => toggleDummy(true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineLightningBolt className="w-3 h-3" /> Dummy</button>
+                        
+                        <div className="w-full space-y-2">
+                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                                <label className="text-[8px] font-black text-slate-400 uppercase text-center block mb-1">Entry Type</label>
+                                <div className="grid grid-cols-2 gap-1">
+                                    <button type="button" onClick={() => toggleStatus('isDummy', false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isDummy ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Regular</button>
+                                    <button type="button" onClick={() => toggleStatus('isDummy', true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineLightningBolt className="w-3 h-3" /> Dummy</button>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                                <label className="text-[8px] font-black text-slate-400 uppercase text-center block mb-1">RTE Admission</label>
+                                <div className="grid grid-cols-2 gap-1">
+                                    <button type="button" onClick={() => toggleStatus('isRte', false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isRte ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-400'}`}>No</button>
+                                    <button type="button" onClick={() => toggleStatus('isRte', true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isRte ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineCheckCircle className="w-3 h-3" /> Yes (RTE)</button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input name="name" placeholder="Full Name" required className="md:col-span-2 p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold focus:ring-2 focus:ring-indigo-500" onChange={handleChange} value={formData.name} />
+                        <input name="name" placeholder="Full Name" required className="md:col-span-2 p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold focus:ring-2 focus:ring-indigo-500 transition-all" onChange={handleChange} value={formData.name} />
                         <div className="flex flex-col gap-1">
                              <label className="text-[10px] font-bold text-slate-400 ml-2">Admission Date</label>
                              <input name="admissionDate" type="date" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.admissionDate} />
                         </div>
-                        <div className="flex flex-col gap-1">
-                             <label className="text-[10px] font-bold text-slate-400 ml-2">SR No.</label>
-                             <input name="srNo" type="number" placeholder="SR No." required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.srNo} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1">
+                                 <label className="text-[10px] font-bold text-slate-400 ml-2">SR No.</label>
+                                 <input name="srNo" type="number" placeholder="SR No." required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.srNo} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                 <label className="text-[10px] font-bold text-slate-400 ml-2">Roll Number</label>
+                                 <input name="rollNumber" type="text" placeholder="Roll No." className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.rollNumber} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -188,9 +209,9 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
                     </select>
 
                     <select name="caste" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.caste}>
-        <option value="">Select Caste</option>
-        {CASTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-    </select>
+                        <option value="">Select Caste</option>
+                        {CASTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                     
                     <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-400 ml-2">DOB</label>
@@ -206,7 +227,6 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
                     </select>
                 </div>
 
-                {/* High School Section Stays Same */}
                 {isHighSchool && (
                     <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 space-y-4">
                         <div className="flex items-center space-x-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest"><HiOutlineAcademicCap className="w-5 h-5" /><span>Stream & Subjects</span></div>
@@ -229,13 +249,21 @@ function SingleStudentFormContent({ onClose, onStudentAdded, activeSession }) {
                     <textarea name="address" value={formData.address} placeholder="Address" rows="1" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} />
                 </div>
 
-                <button type="submit" disabled={loading || !activeSession} className={`w-full py-4 text-white rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 shadow-xl ${formData.isDummy ? 'bg-rose-600 shadow-rose-100' : 'bg-slate-900 shadow-slate-200 hover:bg-indigo-600'}`}>
-                    {loading ? "Processing Admission..." : formData.isDummy ? "Confirm Dummy Admission" : "Confirm Student Admission"}
+                <button type="submit" disabled={loading || !activeSession} className={`w-full py-4 text-white rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 shadow-xl ${formData.isDummy ? 'bg-rose-600 shadow-rose-100' : formData.isRte ? 'bg-emerald-600 shadow-emerald-100' : 'bg-slate-900 shadow-slate-200 hover:bg-indigo-600'}`}>
+                    {loading ? "Processing Admission..." : formData.isDummy ? "Confirm Dummy Admission" : formData.isRte ? "Confirm RTE Admission" : "Confirm Student Admission"}
                 </button>
             </form>
+            
+            {submissionMessage && (
+                <div className={`text-center font-black text-[10px] uppercase tracking-[0.2em] p-3 rounded-xl ${submissionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                    {submissionMessage.text}
+                </div>
+            )}
         </div>
     );
-}
+});
+
+SingleStudentFormContent.displayName = 'SingleStudentFormContent';
 
 export default function AddStudentForm({ onClose, onStudentAdded, activeSession }) {
     const [activeTab, setActiveTab] = useState('single');
@@ -245,11 +273,11 @@ export default function AddStudentForm({ onClose, onStudentAdded, activeSession 
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
             <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
                 <div className="bg-indigo-600 p-4 flex justify-between items-center text-white flex-shrink-0">
-                    <div className="flex space-x-2 bg-white/10 p-1 rounded-2xl">
-                        <button onClick={() => setActiveTab('single')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'single' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
+                    <div className="flex space-x-2 bg-white/10 p-1 rounded-2xl border border-white/10">
+                        <button onClick={() => setActiveTab('single')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'single' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
                             <HiOutlineUserAdd className="inline mr-2 w-4 h-4" /> Single Entry
                         </button>
-                        <button onClick={() => setActiveTab('bulk')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'bulk' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
+                        <button onClick={() => setActiveTab('bulk')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'bulk' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
                             <HiOutlineCollection className="inline mr-2 w-4 h-4" /> Bulk Upload
                         </button>
                     </div>
@@ -257,6 +285,7 @@ export default function AddStudentForm({ onClose, onStudentAdded, activeSession 
                         <HiOutlineX className="w-6 h-6" />
                     </button>
                 </div>
+
                 <div className="overflow-y-auto">
                     {activeTab === 'single' ? (
                         <SingleStudentFormContent 

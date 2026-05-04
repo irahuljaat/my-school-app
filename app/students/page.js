@@ -64,9 +64,11 @@ function StudentListPage() {
     }, [activeSession]);
 
     const filteredStudents = students.filter(student => {
+        const term = searchTerm.toLowerCase();
         const matchesSearch = searchTerm === '' || 
-                              student.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              student.studentId?.toLowerCase().includes(searchTerm.toLowerCase());
+                              student.name?.toLowerCase().includes(term) || 
+                              // Updated to search by rollNumber
+                              student.rollNumber?.toLowerCase().includes(term); 
         
         const matchesClass = selectedClass === '' || String(student.grade) === selectedClass;
         const matchesDummy = showOnlyDummy ? (student.isDummy === true) : (!student.isDummy);
@@ -127,7 +129,6 @@ function StudentListPage() {
                         <h3 className="text-lg font-bold text-[#303972]">Students Information</h3>
                         
                         <div className="flex flex-wrap items-center gap-3">
-                            {/* Class Filter Dropdown */}
                             <div className="relative min-w-[140px]">
                                 <select
                                     value={selectedClass}
@@ -140,19 +141,17 @@ function StudentListPage() {
                                 <HiOutlineAdjustments className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A0A3BD] pointer-events-none" />
                             </div>
 
-                            {/* Search Input */}
                             <div className="relative min-w-[280px]">
                                 <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A3BD]" size={18} />
                                 <input
                                     type="text"
-                                    placeholder="Search by name or roll..."
+                                    placeholder="Search by name or roll number..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-11 pr-4 py-2.5 bg-[#F8F9FD] border-none rounded-xl text-sm font-semibold text-[#303972] placeholder-[#A0A3BD] focus:ring-2 focus:ring-purple-200 transition-all"
                                 />
                             </div>
 
-                            {/* Date Placeholder as per image */}
                             <div className="hidden sm:flex items-center gap-2 bg-[#F8F9FD] px-4 py-2.5 rounded-xl text-[#A0A3BD] text-xs font-bold border border-transparent">
                                 <HiOutlineCalendar size={18} />
                                 Last 30 days
@@ -199,9 +198,12 @@ function StudentListPage() {
                                                 <span className="font-bold text-[#303972] text-sm">{student.name}</span>
                                             </div>
                                         </td>
+                                        
+                                        {/* CORRECTED: Getting Roll Number from Firestore field rollNumber */}
                                         <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100 font-bold text-[#303972] text-sm">
-                                            #{student.studentId || '---'}
+                                            {student.rollNumber ? `#${student.rollNumber}` : '---'}
                                         </td>
+
                                         <td className="px-4 py-3 border-y border-transparent group-hover:border-slate-100 text-[#303972] text-sm font-medium">
                                             {student.fatherName || 'Not Specified'}
                                         </td>
@@ -240,7 +242,7 @@ function StudentListPage() {
                 </div>
             </div>
 
-            {/* Modals - Functional logic remains identical */}
+            {/* Modals */}
             {showAddForm && (
                 <AddStudentForm 
                     activeSession={activeSession} 

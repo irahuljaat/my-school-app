@@ -8,13 +8,11 @@ import {
     HiUserGroup, 
     HiOutlineSave,
     HiOutlineUserCircle,
-    HiOutlineTrendingUp,
-    HiOutlineDatabase,
     HiOutlineLightningBolt,
-    HiCheckCircle,
-    HiXCircle,
-    HiClock
-} from 'react-icons/hi'; // Fixed the import path to /hi
+    HiCheck,
+    HiX,
+    HiMinus
+} from 'react-icons/hi'; 
 import Image from 'next/image';
 
 const MOCK_CLASSES = [ 'LKG','UKG','PREP' ,'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
@@ -31,6 +29,7 @@ function AttendancePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [recordExists, setRecordExists] = useState(false);
 
+    // Initial setup and Session listener
     useEffect(() => {
         setHasMounted(true);
         setSelectedDate(new Date().toISOString().split('T')[0]);
@@ -43,6 +42,14 @@ function AttendancePage() {
         return () => unsub();
     }, []);
 
+    // Alphabetical Sorting Logic
+    const sortedStudents = useMemo(() => {
+        return [...students].sort((a, b) => 
+            (a.name || '').localeCompare(b.name || '')
+        );
+    }, [students]);
+
+    // Attendance Statistics
     const stats = useMemo(() => {
         const values = Object.values(attendanceData);
         return {
@@ -135,7 +142,7 @@ function AttendancePage() {
 
             await setDoc(attendanceDocRef, dataToSave, { merge: true });
             setRecordExists(true); 
-            alert("Attendance Updated");
+            alert("Attendance Saved Successfully");
         } catch (error) {
             console.error(error);
         } finally { setIsSaving(false); }
@@ -144,106 +151,103 @@ function AttendancePage() {
     if (!hasMounted) return null;
 
     return (
-        <div className="min-h-screen bg-[#F8F9FD] p-3 md:p-8 pb-32">
-            <div className="max-w-5xl mx-auto space-y-6">
+        <div className="min-h-screen bg-[#FDFDFD] text-slate-900 pb-32">
+            {/* Minimal Sticky Top Bar */}
+            <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100">
+                <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                            <HiOutlineCalendar />
+                        </div>
+                        <h1 className="font-bold text-lg tracking-tight">Registry</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeSession}</span>
+                         <div className={`w-2 h-2 rounded-full ${recordExists ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
                 
-                {/* Header Section: Stacked on Mobile */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-[#303972] tracking-tight">Attendance</h1>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full text-[9px] font-black uppercase">
-                                <HiOutlineDatabase /> {activeSession}
-                            </span>
-                            {recordExists && (
-                                <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[9px] font-black uppercase">
-                                    Live Record
-                                </span>
-                            )}
-                        </div>
+                {/* Mode & Quick Actions */}
+                <div className="flex flex-col md:flex-row gap-6 justify-between items-end">
+                    <div className="space-y-1">
+                        <h2 className="text-3xl font-light text-slate-400">Class <span className="text-slate-900 font-semibold">{selectedClass}</span></h2>
+                        <p className="text-sm text-slate-500">{new Date(selectedDate).toDateString()}</p>
                     </div>
 
-                    <button 
-                        onClick={() => setShowOnlyDummy(!showOnlyDummy)}
-                        className={`w-full md:w-auto flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bold transition-all duration-300 ${
-                            showOnlyDummy 
-                            ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' 
-                            : 'bg-white border border-slate-200 text-slate-500'
-                        }`}
-                    >
-                        <HiOutlineLightningBolt />
-                        <span className="text-[10px] uppercase tracking-widest font-black">
-                            {showOnlyDummy ? 'Dummy Mode' : 'Regular Mode'}
-                        </span>
-                    </button>
-                </div>
-
-                {/* Filter Card */}
-                <div className="bg-white rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="relative">
-                            <HiOutlineCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" />
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-[#303972] outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                        <div className="relative">
-                            <HiUserGroup className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" />
-                            <select
-                                value={selectedClass}
-                                onChange={(e) => setSelectedClass(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-[#303972] outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500 appearance-none"
-                            >
-                                {MOCK_CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                            </select>
-                        </div>
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <button 
+                            onClick={() => setShowOnlyDummy(!showOnlyDummy)}
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-bold transition-all border ${
+                                showOnlyDummy 
+                                ? 'bg-rose-50 border-rose-100 text-rose-600' 
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'
+                            }`}
+                        >
+                            <HiOutlineLightningBolt />
+                            {showOnlyDummy ? 'DUMMY' : 'REGULAR'}
+                        </button>
+                        <button 
+                            onClick={markAllPresent}
+                            className="flex-1 md:flex-none px-5 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full text-[11px] font-bold hover:bg-indigo-600 hover:text-white transition-all"
+                        >
+                            MARK ALL PRESENT
+                        </button>
                     </div>
                 </div>
 
-                {/* Stats Summary: 2x2 Grid on Mobile */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Filter Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="group relative">
+                        <HiOutlineCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                        />
+                    </div>
+                    <div className="group relative">
+                        <HiUserGroup className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none appearance-none"
+                        >
+                            {MOCK_CLASSES.map(cls => <option key={cls} value={cls}>Grade {cls}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Status Dashboard */}
+                <div className="flex flex-wrap gap-8 py-4 border-y border-slate-50">
                     {[
-                        { label: 'Total', val: stats.total, color: 'bg-white text-slate-800' },
-                        { label: 'Present', val: stats.present, color: 'bg-emerald-500 text-white shadow-emerald-100' },
-                        { label: 'Absent', val: stats.absent, color: 'bg-rose-500 text-white shadow-rose-100' },
-                        { label: 'Leave', val: stats.leave, color: 'bg-amber-400 text-white shadow-amber-100' },
-                    ].map((s, idx) => (
-                        <div key={idx} className={`${s.color} p-4 rounded-3xl text-center shadow-sm`}>
-                            <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-1">{s.label}</p>
-                            <h4 className="text-xl font-black">{s.val}</h4>
+                        { label: 'Total', val: stats.total, color: 'text-slate-900' },
+                        { label: 'Present', val: stats.present, color: 'text-emerald-600' },
+                        { label: 'Absent', val: stats.absent, color: 'text-rose-600' },
+                        { label: 'On Leave', val: stats.leave, color: 'text-amber-500' },
+                    ].map((s, i) => (
+                        <div key={i} className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                            <span className={`text-xl font-semibold ${s.color}`}>{s.val}</span>
                         </div>
                     ))}
                 </div>
 
-                {/* List Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-2">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <HiOutlineTrendingUp className="text-indigo-500" />
-                        Student Manifest
-                    </h3>
-                    <button 
-                        onClick={markAllPresent}
-                        className="w-full sm:w-auto text-[9px] font-black px-4 py-2 rounded-lg uppercase bg-indigo-50 text-indigo-600 active:scale-95 transition-all border border-indigo-100"
-                    >
-                        Mark All Present
-                    </button>
-                </div>
-
-                {/* Responsive Student Cards */}
-                <div className="grid grid-cols-1 gap-3">
+                {/* Student Manifest (Sorted Alphabetically) */}
+                <div className="space-y-3">
                     {loading ? (
-                        <div className="py-20 text-center animate-pulse text-slate-400 font-black text-[10px] tracking-widest">LOADING REGISTRY...</div>
-                    ) : students.length === 0 ? (
-                        <div className="py-20 text-center bg-white rounded-[2rem] border-2 border-dashed border-slate-100 text-slate-400 text-[10px] font-black uppercase">No students in this class</div>
+                        <div className="py-20 text-center space-y-4">
+                            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                            <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em]">SYNCING REGISTRY</p>
+                        </div>
                     ) : (
-                        students.map((student) => (
-                            <div key={student.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-4">
-                                {/* Top Info: Flex row on all screens */}
+                        sortedStudents.map((student) => (
+                            <div key={student.id} className="group bg-white p-3 md:p-4 rounded-3xl border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-500/5 transition-all flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-14 w-14 rounded-2xl bg-slate-100 overflow-hidden relative flex-shrink-0">
+                                    <div className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden relative flex-shrink-0">
                                         {student.imageUrl ? (
                                             <Image 
                                                 src={student.imageUrl.replace('/upload/', '/upload/w_100,h_100,c_fill/')} 
@@ -252,59 +256,56 @@ function AttendancePage() {
                                         ) : <HiOutlineUserCircle className="h-full w-full text-slate-200" />}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-black text-[#303972] text-sm uppercase truncate">{student.name}</p>
-                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">UID: {student.studentId || 'N/A'}</p>
+                                        <p className="font-semibold text-slate-800 text-sm">{student.name}</p>
+                                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">SR: {student.srNo}</p>
                                     </div>
                                 </div>
 
-                                {/* Bottom Toggles: Large buttons for mobile thumbs */}
-                                <div className="flex gap-2">
+                                {/* Status Toggles */}
+                                <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
                                     {[
-                                        { id: 'Present', icon: HiCheckCircle, color: 'bg-emerald-500 shadow-emerald-100' },
-                                        { id: 'Absent', icon: HiXCircle, color: 'bg-rose-500 shadow-rose-100' },
-                                        { id: 'Leave', icon: HiClock, color: 'bg-amber-400 shadow-amber-100' }
+                                        { id: 'Present', icon: HiCheck, active: 'bg-white text-emerald-600 shadow-sm' },
+                                        { id: 'Absent', icon: HiX, active: 'bg-white text-rose-600 shadow-sm' },
+                                        { id: 'Leave', icon: HiMinus, active: 'bg-white text-amber-500 shadow-sm' }
                                     ].map((status) => {
                                         const isActive = attendanceData[student.id] === status.id;
                                         return (
                                             <button
                                                 key={status.id}
                                                 onClick={() => handleAttendanceChange(student.id, status.id)}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                                                    isActive 
-                                                    ? `${status.color} text-white shadow-lg` 
-                                                    : 'bg-slate-50 text-slate-400'
+                                                className={`w-10 h-10 md:w-12 md:h-10 flex items-center justify-center rounded-xl transition-all ${
+                                                    isActive ? status.active : 'text-slate-300 hover:text-slate-500'
                                                 }`}
                                             >
-                                                <status.icon className="text-sm" />
-                                                <span className="hidden sm:inline">{status.id}</span>
+                                                <status.icon className="text-lg" />
                                             </button>
                                         );
                                     })}
                                 </div>
                             </div>
-                        )
-                    ))}
+                        ))
+                    )}
                 </div>
+            </div>
 
-                {/* Sticky Mobile Save Button */}
-                <div className="fixed bottom-4 left-4 right-4 md:relative md:bottom-0 md:left-0 md:right-0 z-50">
-                    <button
-                        onClick={handleSaveAttendance}
-                        disabled={isSaving || students.length === 0}
-                        className={`w-full py-4.5 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 ${
-                            showOnlyDummy ? 'bg-rose-600' : 'bg-[#303972]'
-                        }`}
-                    >
-                        {isSaving ? (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                            <>
-                                <HiOutlineSave className="text-lg" />
-                                <span>Save Attendance</span>
-                            </>
-                        )}
-                    </button>
-                </div>
+            {/* Floating Action Button (FAB) */}
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-6">
+                <button
+                    onClick={handleSaveAttendance}
+                    disabled={isSaving || students.length === 0}
+                    className={`group w-full py-4 rounded-[2rem] text-white font-bold text-sm tracking-widest shadow-2xl shadow-indigo-200 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:grayscale ${
+                        showOnlyDummy ? 'bg-rose-500' : 'bg-indigo-600'
+                    }`}
+                >
+                    {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                        <>
+                            <HiOutlineSave className="text-xl group-hover:rotate-12 transition-transform" />
+                            <span>SAVE ATTENDANCE</span>
+                        </>
+                    )}
+                </button>
             </div>
         </div>
     );
