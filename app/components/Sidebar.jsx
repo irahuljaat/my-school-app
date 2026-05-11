@@ -5,17 +5,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import { 
-    HiChevronDown, HiOutlineAcademicCap, 
-    HiOutlineClipboardList, HiOutlineHome, 
-    HiOutlineUserGroup, HiOutlineCurrencyDollar, 
-    HiOutlineChartBar, HiOutlineLightningBolt,
-    HiOutlineIdentification, HiOutlineGlobeAlt, 
-    HiOutlineBell, HiOutlineCog, HiOutlineX,
-    HiOutlineMinusSm, HiOutlinePlusSm, HiOutlineSparkles
+    HiOutlineAcademicCap, HiOutlineClipboardList, HiOutlineHome, 
+    HiOutlineUserGroup, HiOutlineCurrencyDollar, HiOutlineChartBar, 
+    HiOutlineLightningBolt, HiOutlineIdentification, HiOutlineGlobeAlt, 
+    HiOutlineBell, HiOutlineCog, HiOutlineX, HiOutlineMinusSm, 
+    HiOutlinePlusSm, HiOutlineSparkles
 } from 'react-icons/hi';
 
 const Sidebar = ({ activePath, isOpen, onClose }) => {
-    // 1. Primary Navigation Items
+    // Navigation Data (Same as original)
     const primaryNav = [
         { name: 'Dashboard', icon: HiOutlineHome, path: '/dashboard' },
         { name: 'Students', icon: HiOutlineAcademicCap, path: '/students' },
@@ -25,17 +23,12 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
         { name: 'Admissions', icon: HiOutlineClipboardList, path: '/Adenquiry' },
     ];
 
-    // 2. Dropdown Menus
-    const reportsNav = [
-        { name: 'Attendance Report', path: '/reports/attendance' },
-    ];
-
+    const reportsNav = [{ name: 'Attendance Report', path: '/reports/attendance' }];
     const financeNav = [
         { name: 'Fee Collection', path: '/fees-system' },
         { name: 'School Expenses', path: '/school-expenses' },
     ];
 
-    // 3. Other Utilities
     const otherNav = [
         { name: 'Exam Management', icon: HiOutlineClipboardList, path: '/exam-manage' },
         { name: 'Event and Activity', icon: HiOutlineLightningBolt, path: '/events' },
@@ -54,8 +47,8 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
             if (hasSubItems) {
                 e.preventDefault();
                 setIsSubOpen(!isSubOpen);
-            } else {
-                if (onClose) onClose();
+            } else if (onClose) {
+                onClose();
             }
         };
 
@@ -64,16 +57,14 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                 <Link 
                     href={hasSubItems ? '#' : path}
                     onClick={handleClick}
-                    className={`flex items-center px-4 py-2.5 rounded-full transition-all duration-300 group relative ${
-                        isActive && !hasSubItems 
-                        ? 'bg-black text-white shadow-xl' 
-                        : isSubOpen && hasSubItems 
-                        ? 'bg-black text-white'
-                        : 'text-zinc-500 hover:text-black hover:bg-zinc-100/50'
+                    className={`flex items-center px-5 py-3 rounded-2xl transition-all duration-300 group relative ${
+                        isActive 
+                        ? 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white text-indigo-600' 
+                        : 'text-slate-500 hover:bg-white/50 hover:text-slate-900'
                     }`}
                 >
-                    <Icon className={`w-5 h-5 mr-3 ${isActive || isSubOpen ? 'text-current' : 'text-zinc-400'}`} />
-                    <span className="flex-1 font-semibold text-[13px] tracking-tight">{name}</span>
+                    <Icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-900'}`} />
+                    <span className="flex-1 font-black text-[11px] uppercase tracking-wider italic">{name}</span>
                     
                     {hasSubItems && (
                         <div className="ml-2">
@@ -82,23 +73,23 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                     )}
                 </Link>
 
-                {/* Sub-menu with Vertical Thread Line - from image_0dae3b.png */}
                 {hasSubItems && isSubOpen && (
-                    <div className="ml-6 mt-1 relative">
-                        <div className="absolute left-0 top-0 bottom-2 w-[1.5px] bg-zinc-200" />
+                    <div className="ml-8 mt-2 relative">
+                        {/* Vertical Thread Line */}
+                        <div className="absolute left-0 top-0 bottom-3 w-[2px] bg-gradient-to-b from-indigo-200 to-transparent" />
                         <div className="space-y-1 pt-1">
                             {subItems.map(item => (
                                 <Link 
                                     key={item.name} 
                                     href={item.path}
                                     onClick={() => onClose && onClose()}
-                                    className={`flex items-center ml-4 px-4 py-2 rounded-full text-[12px] font-bold transition-all ${
+                                    className={`flex items-center ml-4 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                         activePath === item.path 
-                                        ? 'bg-white text-black shadow-sm ring-1 ring-zinc-100' 
-                                        : 'text-zinc-400 hover:text-black'
+                                        ? 'text-indigo-600 bg-indigo-50/50' 
+                                        : 'text-slate-400 hover:text-indigo-500'
                                     }`}
                                 >
-                                    <div className="w-1 h-1 rounded-full bg-current mr-2 opacity-40" />
+                                    <div className={`w-1.5 h-1.5 rounded-full mr-2 ${activePath === item.path ? 'bg-indigo-600 animate-pulse' : 'bg-slate-200'}`} />
                                     {item.name}
                                 </Link>
                             ))}
@@ -111,20 +102,21 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
 
     return (
         <>
-            {/* Mobile Backdrop */}
+            {/* Glassmorphism Backdrop */}
             {isOpen && (
-                <div className="fixed inset-0 bg-white/60 backdrop-blur-md z-[60] lg:hidden" onClick={onClose} />
+                <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[60] lg:hidden" onClick={onClose} />
             )}
 
             <aside className={`
-                fixed inset-y-0 left-0 z-[70] w-72 bg-[#F6F6F6] border-r border-zinc-200/50 h-screen 
+                fixed inset-y-0 left-0 z-[70] w-72 
+                bg-[#F8FAFC]/80 backdrop-blur-xl border-r border-white/50 h-screen 
                 flex flex-col transition-transform duration-500 ease-in-out lg:translate-x-0 lg:static lg:block shrink-0
-                ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+                ${isOpen ? 'translate-x-0 shadow-2xl shadow-indigo-100' : '-translate-x-full lg:translate-x-0'}
             `}>
-                {/* Brand Header */}
-                <div className="p-8 mb-2 flex items-center justify-between">
+                {/* Brand Header - Clean Glass Card */}
+                <div className="p-8 mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 relative shrink-0 overflow-hidden rounded-xl bg-white shadow-sm border border-zinc-100 p-1">
+                        <div className="w-11 h-11 relative shrink-0 overflow-hidden rounded-[1.25rem] bg-white shadow-xl shadow-slate-200/50 border border-white p-1.5">
                             <Image 
                                 src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" 
                                 alt="MVG School Logo"
@@ -133,19 +125,22 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                                 priority
                             />
                         </div>
-                        <span className="text-sm font-black text-black tracking-widest uppercase">MVG SCHOOL</span>
+                        <div>
+                            <span className="text-[12px] font-black text-slate-900 tracking-tighter uppercase italic block leading-none">MVG School</span>
+                            <span className="text-[8px] font-bold text-indigo-500 tracking-widest uppercase block mt-1">Admin Panel</span>
+                        </div>
                     </div>
                     
-                    <button onClick={onClose} className="lg:hidden p-2 text-zinc-400 hover:bg-white rounded-full">
-                        <HiOutlineX size={20} />
+                    <button onClick={onClose} className="lg:hidden p-2 bg-white rounded-xl shadow-sm text-slate-400">
+                        <HiOutlineX size={18} />
                     </button>
                 </div>
 
                 {/* Navigation Sections */}
                 <div className="flex-1 px-6 space-y-8 pb-10 overflow-y-auto custom-scrollbar">
-                    {/* Core Section */}
+                    {/* Management Section */}
                     <div>
-                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Core Management</h3>
+                        <h3 className="px-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">Core Center</h3>
                         <div className="space-y-1">
                             {primaryNav.map(item => (
                                 <NavItem key={item.name} {...item} activePath={activePath} />
@@ -162,7 +157,7 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
 
                     {/* Financial Section */}
                     <div>
-                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Financials</h3>
+                        <h3 className="px-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">Accountancy</h3>
                         <NavItem 
                             name="Finance" 
                             icon={HiOutlineCurrencyDollar} 
@@ -174,7 +169,7 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
 
                     {/* Operations Section */}
                     <div>
-                        <h3 className="px-4 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Operations</h3>
+                        <h3 className="px-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">Support & Tools</h3>
                         <div className="space-y-1">
                             {otherNav.map(item => (
                                 <NavItem key={item.name} {...item} activePath={activePath} />
@@ -183,15 +178,15 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
                     </div>
                 </div>
 
-                {/* Profile Brief Footer */}
+                {/* Neumorphic Profile Footer */}
                 <div className="p-6">
-                    <div className="bg-white/60 backdrop-blur-sm p-3 rounded-2xl border border-white flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-[10px] shadow-lg">
+                    <div className="bg-white/40 backdrop-blur-md p-4 rounded-[2rem] border border-white shadow-[0_10px_40px_rgba(0,0,0,0.03)] flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black text-[10px] shadow-lg shadow-slate-300">
                             AD
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-black text-black truncate uppercase">Administrator</p>
-                            <p className="text-[9px] text-zinc-400 font-bold italic">Super Admin</p>
+                            <p className="text-[11px] font-black text-slate-900 truncate uppercase italic tracking-tight">Administrator</p>
+                            <p className="text-[9px] text-indigo-500 font-black uppercase tracking-tighter">School Head</p>
                         </div>
                     </div>
                 </div>
@@ -199,11 +194,17 @@ const Sidebar = ({ activePath, isOpen, onClose }) => {
 
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar {
-                    width: 3px;
+                    width: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #e4e4e7;
-                    border-radius: 10px;
+                    background: #E2E8F0;
+                    border-radius: 20px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #CBD5E1;
                 }
             `}</style>
         </>

@@ -8,7 +8,8 @@ import {
     HiOutlineCurrencyRupee,
     HiOutlineArrowLeft,
     HiOutlineDatabase,
-    HiOutlineSearch
+    HiOutlineSearch,
+    HiOutlineHome
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -48,27 +49,22 @@ export default function TeacherManagePage() {
         switch (currentView) {
             case VIEWS.ADD:
                 return <AddTeacherForm onSuccess={() => setCurrentView(VIEWS.LIST)} />; 
-            
             case VIEWS.EDIT:
                 if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." />;
                 return <TeacherEditForm teacherData={selectedTeacher} onSuccess={() => {
                     setSelectedTeacher(null); 
                     setCurrentView(VIEWS.LIST); 
                 }} onCancel={() => setCurrentView(VIEWS.LIST)} />;
-
             case VIEWS.VIEW_PRINT:
                 if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." />;
                 return <TeacherViewPrint teacherData={selectedTeacher} onClose={() => {
                     setSelectedTeacher(null);
                     setCurrentView(VIEWS.LIST); 
                 }} />;
-                
             case VIEWS.ATTENDANCE:
                 return <TeacherAttendance activeSession={activeSession} />;
-
             case VIEWS.SALARY:
                 return <SalaryManagement activeSession={activeSession} />;
-
             case VIEWS.LIST:
             default:
                 return (
@@ -90,33 +86,33 @@ export default function TeacherManagePage() {
     const isInternalView = currentView === VIEWS.VIEW_PRINT || currentView === VIEWS.EDIT;
 
     return (
-        // Added font-sans for clean modern look
-        <div className="min-h-screen bg-[#F8F9FD] p-6 lg:p-10 font-sans text-[#303972]">
-            <div className="max-w-[1400px] mx-auto">
+        <div className="min-h-screen bg-[#F2F5FF] relative overflow-hidden p-4 lg:p-10 font-sans selection:bg-indigo-100">
+            {/* Apple Background Accents */}
+            <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-400/20 blur-[120px] rounded-full pointer-events-none" />
+            <div className="fixed bottom-[-5%] left-[-5%] w-[600px] h-[600px] bg-purple-400/20 blur-[150px] rounded-full pointer-events-none" />
+
+            <div className="max-w-[1440px] mx-auto relative z-10">
                 
-                {/* Top Header Section */}
-                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-extrabold text-[#303972] tracking-tight">
-                            {currentView === VIEWS.LIST ? 'All Teachers' : 
-                             currentView === VIEWS.ADD ? 'Teacher Registration' : 
-                             currentView === VIEWS.ATTENDANCE ? 'Staff Attendance' : 'Payroll Management'}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-2 text-sm font-semibold text-[#A0A3BD]">
-                            <span>Home</span>
-                            <span>/</span>
-                            <span className="text-[#303972]">Teachers</span>
-                            {activeSession && (
-                                <span className="ml-4 flex items-center gap-1 bg-purple-50 text-purple-600 px-3 py-0.5 rounded-full text-[10px] border border-purple-100 uppercase tracking-widest">
-                                    <HiOutlineDatabase className="w-3 h-3"/> {activeSession}
-                                </span>
-                            )}
+                {/* Modern Apple-style Header */}
+                <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            <HiOutlineHome className="mb-0.5" /> <span>Home</span> <span className="opacity-30">/</span> <span className="text-indigo-500">Staff Portal</span>
                         </div>
+                        <h1 className="text-5xl font-black text-slate-800 tracking-tighter italic uppercase">
+                            Teacher <span className="text-indigo-600">Hub</span>
+                        </h1>
+                        {activeSession && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/50 backdrop-blur-md rounded-full border border-white/80 shadow-sm">
+                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{activeSession} Session Active</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Navigation Bar matching the Spik style */}
+                    {/* Navigation Bar - Floating Glass Pill */}
                     {!isInternalView && (
-                        <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+                        <nav className="flex bg-white/40 backdrop-blur-3xl p-1.5 rounded-[2rem] border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.05)]">
                             {navItems.map(item => (
                                 <button
                                     key={item.id}
@@ -124,48 +120,61 @@ export default function TeacherManagePage() {
                                         setCurrentView(item.id);
                                         setSelectedTeacher(null); 
                                     }}
-                                    className={`flex items-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap ${
+                                    className={`flex items-center px-6 py-3 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${
                                         currentView === item.id 
-                                        ? 'bg-[#6B46C1] text-white shadow-md' 
-                                        : 'text-[#A0A3BD] hover:text-[#6B46C1] hover:bg-[#F8F9FD]'
+                                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' 
+                                        : 'text-slate-500 hover:text-indigo-600 hover:bg-white/60'
                                     }`}
                                 >
-                                    <item.icon className={`w-4 h-4 mr-2 ${currentView === item.id ? 'text-white' : ''}`} />
+                                    <item.icon className={`w-4 h-4 mr-2 ${currentView === item.id ? 'animate-pulse' : ''}`} />
                                     {item.label}
                                 </button>
                             ))}
-                        </div>
+                        </nav>
                     )}
 
                     {isInternalView && (
                         <button 
                             onClick={() => setCurrentView(VIEWS.LIST)}
-                            className="flex items-center px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#303972] hover:bg-slate-50 transition-all shadow-sm"
+                            className="flex items-center px-8 py-3.5 bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-white transition-all shadow-lg active:scale-95"
                         >
                             <HiOutlineArrowLeft className="w-4 h-4 mr-2" />
-                            Back to List
+                            Return to Hub
                         </button>
                     )}
                 </div>
 
-                {/* Main Content Card */}
-                <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px]">
-                    {/* Interior Header for the Table Area (as seen in image) */}
+                {/* Main Content Glass Container */}
+                <div className="bg-white/40 backdrop-blur-[40px] rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white/70 overflow-hidden min-h-[750px] relative">
+                    
+                    {/* Inner Header Glow */}
+                    <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-indigo-50/30 to-transparent pointer-events-none" />
+
                     {currentView === VIEWS.LIST && (
-                        <div className="p-8 pb-0 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-[#303972]">Teachers Information</h2>
-                            <div className="relative w-72">
-                                <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A3BD]" size={18} />
+                        <div className="relative z-10 p-10 pb-0 flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
+                                    <HiOutlineUsers size={28} />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800 uppercase italic leading-none">Staff Roster</h2>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Personnel Management System</p>
+                                </div>
+                            </div>
+                            
+                            {/* Search Glass Input */}
+                            <div className="relative group w-full max-w-md">
+                                <HiOutlineSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                                 <input 
                                     type="text" 
-                                    placeholder="Search by name or ID..."
-                                    className="w-full bg-[#F8F9FD] border-none rounded-xl py-2.5 pl-12 pr-4 text-sm font-semibold text-[#303972] placeholder-[#A0A3BD] focus:ring-2 focus:ring-purple-200"
+                                    placeholder="Search Directory..."
+                                    className="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-[1.5rem] py-4 pl-14 pr-6 text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-8 focus:ring-indigo-500/5 transition-all outline-none"
                                 />
                             </div>
                         </div>
                     )}
                     
-                    <div className={`${isInternalView ? '' : 'p-8'}`}>
+                    <div className={`relative z-10 ${isInternalView ? '' : 'p-10 pt-8'}`}>
                         {renderContent()}
                     </div>
                 </div>
@@ -175,16 +184,17 @@ export default function TeacherManagePage() {
 }
 
 const ErrorMessage = ({ message }) => (
-    <div className="flex flex-col items-center justify-center h-[500px] text-center">
-        <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
+    <div className="flex flex-col items-center justify-center h-[600px] text-center">
+        <div className="w-24 h-24 bg-white/60 backdrop-blur-2xl text-rose-500 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl border border-white animate-bounce">
             <HiOutlineUsers className="w-10 h-10" />
         </div>
-        <p className="text-[#303972] text-lg font-bold">{message}</p>
+        <p className="text-slate-800 text-2xl font-black uppercase italic tracking-tight mb-2">{message}</p>
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">An error occurred while fetching the directory</p>
         <button 
             onClick={() => window.location.reload()} 
-            className="mt-6 bg-[#6B46C1] text-white px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-[#553C9A] transition-colors"
+            className="bg-slate-800 text-white px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl active:scale-95"
         >
-            Reload Page
+            Hard Reset Page
         </button>
     </div>
 );
