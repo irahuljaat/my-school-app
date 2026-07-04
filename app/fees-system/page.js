@@ -11,7 +11,8 @@ import {
     HiRefresh, HiCash, HiClock, HiSearch, HiX, 
     HiUserCircle, HiCheckCircle, HiExclamationCircle,
     HiCollection, HiPlus, HiTrash, HiSave, HiGift, HiExclamation,
-    HiCalendar, HiDatabase, HiEye, HiTrendingUp, HiBadgeCheck, HiPrinter
+    HiCalendar, HiDatabase, HiEye, HiTrendingUp, HiBadgeCheck, HiPrinter,
+    HiPencil
 } from 'react-icons/hi';
 
 // Component Import
@@ -59,8 +60,11 @@ export default function FeesSystemPage() {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [relaxationAmount, setRelaxationAmount] = useState(""); 
-    const [dueAmount, setDueAmount] = useState("");
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // Inline Edit States for Old Dues
+    const [editingDueId, setEditingDueId] = useState(null);
+    const [editingDueValue, setEditingDueValue] = useState("");
 
     // Receipt & History States
     const [showReceipt, setShowReceipt] = useState(false);
@@ -151,14 +155,34 @@ export default function FeesSystemPage() {
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }, [students, baseClassFee, annualPayments, searchTerm, showOnlyDummy]);
 
-    // 4. TRANSACTION HANDLER
+    // 4. HANDLERS
+    const handleUpdateOldDue = async (studentId, currentTotalFee) => {
+        try {
+            const studentFeeRef = doc(db, 'sessions', activeSession, 'feePayments', studentId);
+            const newDue = Number(editingDueValue) || 0;
+            
+            await setDoc(studentFeeRef, {
+                dueFees: newDue,
+                totalFee: currentTotalFee || baseClassFee
+            }, { merge: true });
+            
+            setEditingDueId(null);
+            fetchFeeData();
+        } catch (e) { alert("Failed to update old due."); }
+    };
+
     const handleProcessPayment = async () => {
-        if (!selectedStudent || (!paymentAmount && !relaxationAmount && !dueAmount)) return;
+        if (!selectedStudent || (!paymentAmount && !relaxationAmount)) return;
         setLoading(true);
         try {
             const amtNum = Number(paymentAmount) || 0;
             const relaxNum = Number(relaxationAmount) || 0;
-            const dueNum = Number(dueAmount) || 0;
+            
+            // Logic: Deduct from old dues first, remainder goes to main paidAmount
+            const validExistingDue = Math.max(0, selectedStudent.dueFees || 0);
+            const deductFromDue = Math.min(amtNum, validExistingDue);
+            const addToPaid = amtNum - deductFromDue;
+
             const dateParts = paymentDate.split('-');
             const dateKey = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
             
@@ -177,9 +201,9 @@ export default function FeesSystemPage() {
 
             await setDoc(studentFeeRef, {
                 totalFee: selectedStudent.totalFee || baseClassFee,
-                paidAmount: increment(amtNum),
+                paidAmount: increment(addToPaid),
                 relaxationAmount: increment(relaxNum),
-                dueFees: increment(dueNum),
+                dueFees: increment(-deductFromDue), // Decreases the old due appropriately
                 history: amtNum > 0 ? { [finalKey]: amtNum } : (docSnap.exists() ? docSnap.data().history : {}),
                 studentName: selectedStudent.name,
                 grade: selectedClass,
@@ -189,7 +213,6 @@ export default function FeesSystemPage() {
             setIsPaymentModalOpen(false);
             setPaymentAmount("");
             setRelaxationAmount("");
-            setDueAmount("");
             fetchFeeData(); 
         } catch (e) { alert("Database update failed."); } 
         finally { setLoading(false); }
@@ -284,7 +307,34 @@ export default function FeesSystemPage() {
                                     <td className="px-8 py-5 text-right text-slate-400 font-bold text-sm">
                                         {s.isRte ? <span className="text-emerald-500">RTE Free</span> : formatCurrency(s.totalFee)}
                                     </td>
-                                    <td className="px-8 py-5 text-right font-black text-amber-600">{formatCurrency(s.dueFees)}</td>
+                                    
+                                    {/* Editable Old Due Cell */}
+                                    <td className="px-8 py-5 text-right font-black text-amber-600 relative group/due">
+                                        {editingDueId === s.id ? (
+                                            <div className="flex items-center justify-end gap-2">
+                                                <input 
+                                                    type="number" 
+                                                    className="w-20 p-1.5 bg-white shadow-inner rounded-lg outline-none border border-amber-200 text-amber-700 text-right text-sm font-black focus:border-amber-400 transition-all"
+                                                    value={editingDueValue}
+                                                    onChange={e => setEditingDueValue(e.target.value)}
+                                                    autoFocus
+                                                />
+                                                <button onClick={() => handleUpdateOldDue(s.id, s.totalFee)} className="text-emerald-500 hover:text-emerald-600 bg-emerald-50 p-1.5 rounded-lg transition-colors"><HiCheckCircle size={18}/></button>
+                                                <button onClick={() => setEditingDueId(null)} className="text-rose-500 hover:text-rose-600 bg-rose-50 p-1.5 rounded-lg transition-colors"><HiX size={18}/></button>
+                                            </div>
+                                        ) : (
+                                            <div 
+                                                className="flex items-center justify-end gap-2 cursor-pointer hover:bg-amber-50/50 -mr-2 pr-2 py-1 rounded-lg transition-all" 
+                                                onClick={() => { setEditingDueId(s.id); setEditingDueValue(s.dueFees || 0); }}
+                                            >
+                                                <span>{formatCurrency(s.dueFees)}</span>
+                                                <div className="opacity-0 group-hover/due:opacity-100 transition-opacity p-1 bg-amber-100 rounded text-amber-600">
+                                                    <HiPencil className="w-3 h-3" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </td>
+                                    
                                     <td className="px-8 py-5 text-right font-black text-emerald-600">{formatCurrency(s.totalPaid)}</td>
                                     <td className="px-8 py-5 text-right font-black text-rose-500">{formatCurrency(s.relaxation)}</td>
                                     <td className="px-8 py-5 text-right">
@@ -399,14 +449,9 @@ export default function FeesSystemPage() {
                                     <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-indigo-500" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Existing Old</label>
-                                    <div className="w-full p-4 bg-amber-50 rounded-2xl font-black text-amber-700 border border-amber-100">{formatCurrency(selectedStudent?.dueFees || 0)}</div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Existing Old Due</label>
+                                    <div className="w-full p-4 bg-amber-50 rounded-2xl font-black text-amber-700 border border-amber-100 text-center">{formatCurrency(selectedStudent?.dueFees || 0)}</div>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] font-black text-rose-500 uppercase mb-1 block">Add to Old Due / Arrears (₹)</label>
-                                <input type="number" placeholder="Enter Arrears..." className="w-full p-4 bg-rose-50/30 rounded-2xl font-black outline-none border-2 border-transparent focus:border-rose-300 text-rose-700" value={dueAmount} onChange={e => setDueAmount(e.target.value)} />
                             </div>
 
                             <div>

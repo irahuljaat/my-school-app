@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     getFirestore, collection, query, getDocs, doc, 
-    setDoc, Timestamp, deleteDoc, where, collectionGroup, onSnapshot 
+    setDoc, Timestamp, deleteDoc, collectionGroup, onSnapshot 
 } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from '../firebase/config'; 
 import { 
-    HiPlus, HiTrash, HiAcademicCap, HiCalendar, 
-    HiCash, HiRefresh, HiX, HiUserGroup, HiArrowSmUp, HiArrowSmDown 
+    HiTrash, HiAcademicCap, HiRefresh, HiX, HiUserGroup, 
+    HiOutlineDocumentText
 } from 'react-icons/hi';
 
 const db = getFirestore(app);
@@ -46,8 +46,8 @@ export default function SchoolExpensePortal() {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
-                setAvailableSessions(data.sessions || ["2025-26"]);
-                if (!activeSession) {
+                setAvailableSessions(data.sessions || ["2025-26", "2026-27"]);
+                if (!activeSession && data.activeSession) {
                     setActiveSession(data.activeSession);
                 }
             }
@@ -59,16 +59,7 @@ export default function SchoolExpensePortal() {
         if (!activeSession) return;
         setLoading(true);
         try {
-            // 1. TEACHERS DATA
-            const teacherSnap = await getDocs(collection(db, 'teachers'));
-            const teacherMap = {};
-            teacherSnap.docs.forEach(d => {
-                const data = d.data();
-                const cleanSalary = String(data.salary || "0").replace(/[^0-9.]/g, '');
-                teacherMap[d.id] = Number(cleanSalary);
-            });
-
-            // 2. FEES (Filtered by session path)
+            // 1. FEES (Income)
             const feeSnap = await getDocs(query(collectionGroup(db, 'feePayments')));
             const feeList = feeSnap.docs
                 .filter(d => d.ref.path.includes(activeSession))
@@ -79,7 +70,7 @@ export default function SchoolExpensePortal() {
                     note: `Student Fee: ${d.data().studentName || 'Student'}`
                 }));
 
-            // 3. SALARIES (Filtered by academic year logic)
+            // 2. SALARIES (Expense)
             const salarySnap = await getDocs(collection(db, 'salaryPayments'));
             const [sYear, eYearShort] = activeSession.split('-').map(v => v.trim());
             const sessionStartYear = Number(sYear);
@@ -104,9 +95,20 @@ export default function SchoolExpensePortal() {
                     };
                 });
 
-            // 4. MANUAL ENTRIES (Updated to: sessions > {activeSession} > accounts)
+            // 3. MANUAL ENTRIES (Admin added Accounts)
             const manualSnap = await getDocs(collection(db, 'sessions', activeSession, 'accounts'));
-            const manualList = manualSnap.docs.map(d => ({ id: d.id, source: 'manual', ...d.data() }));
+            const manualList = manualSnap.docs.map(d => {
+                const data = d.data();
+                return {
+                    id: d.id, 
+                    source: 'manual', 
+                    type: data.type?.toLowerCase() === 'income' ? 'Income' : 'Expense',
+                    category: data.category || 'Manual Entry',
+                    amount: Number(data.amount || 0),
+                    date: data.date || Timestamp.now(),
+                    note: data.category || 'Manual Entry'
+                };
+            });
 
             setFeeTransactions(feeList);
             setSalaryTransactions(salaryList);
@@ -144,127 +146,210 @@ export default function SchoolExpensePortal() {
     }, [feeTransactions, salaryTransactions, manualTransactions, filter]);
 
     if (authStatus === 'loading' || !activeSession) return (
-        <div className="h-screen flex items-center justify-center font-black animate-pulse bg-white text-slate-400 uppercase tracking-[0.3em]">
+        <div className="h-screen flex flex-col items-center justify-center font-bold animate-pulse bg-[#f4f7fe] text-[#9853eb] uppercase tracking-widest text-sm">
+            <HiRefresh className="w-8 h-8 mb-4 animate-spin" />
             Syncing Ledger...
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#fafafa] p-4 md:p-10 text-slate-900 font-sans">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+        <div className="min-h-screen bg-[#f4f7fe] p-4 md:p-8 text-slate-800 font-sans">
+            
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6 bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
                 <div className="text-center md:text-left">
-                    <h1 className="text-4xl font-black italic tracking-tighter uppercase text-slate-800">School Ledger</h1>
-                    <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                        <span className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                    <h1 className="text-2xl font-black tracking-tight text-slate-800">School Ledger</h1>
+                    <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
+                        <span className="bg-[#f3efff] text-[#9853eb] px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
                             Session {activeSession}
                         </span>
-                        <div className="w-1 h-1 bg-indigo-500 rounded-full"></div>
-                        <p className="text-slate-400 font-bold text-[9px] uppercase tracking-widest">Accounting Portal</p>
+                        <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                        <p className="text-slate-500 font-medium text-xs">Accounting & Finance Portal</p>
                     </div>
                 </div>
                 
-                <div className="flex gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     <select 
                         value={activeSession} 
                         onChange={(e) => setActiveSession(e.target.value)} 
-                        className="bg-white border border-slate-200 px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-sm outline-none focus:ring-2 ring-indigo-500"
+                        className="bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-[12px] font-bold text-xs text-slate-600 outline-none focus:ring-2 focus:ring-[#9853eb] transition-all cursor-pointer"
                     >
                         {availableSessions.map(s => <option key={s} value={s}>{s} Session</option>)}
                     </select>
                     
-                    <button onClick={fetchData} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 hover:text-indigo-600 transition-colors">
-                        <HiRefresh className={loading ? 'animate-spin' : ''}/>
+                    <button onClick={fetchData} className="p-2.5 bg-slate-50 border border-slate-200 rounded-[12px] text-slate-400 hover:text-[#9853eb] hover:bg-[#f3efff] transition-all">
+                        <HiRefresh className={`w-5 h-5 ${loading ? 'animate-spin text-[#9853eb]' : ''}`}/>
                     </button>
-                    <button onClick={() => setIsModalOpen(true)} className="flex-1 bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-[10px] tracking-widest uppercase shadow-xl hover:bg-indigo-700 transition-all">
+                    
+                    <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none bg-[#9853eb] text-white px-6 py-2.5 rounded-[12px] font-bold text-xs shadow-md shadow-purple-200 hover:bg-[#8645d4] transition-all">
                         + Add Entry
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                <StatCard label="Total Income" val={stats.inc} color="text-emerald-600" />
-                <StatCard label="Teacher Salaries" val={stats.sal} color="text-rose-600" />
-                <StatCard label="Direct Expenses" val={stats.exp - stats.sal} color="text-slate-700" />
-                <div className="bg-slate-900 p-7 rounded-[2rem] text-white shadow-2xl">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Balance</p>
-                    <h3 className="text-2xl font-black tracking-tight">{formatCurrency(stats.bal)}</h3>
+            {/* Stat Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <StatCard label="Total Income" val={stats.inc} color="text-emerald-600" bgColor="bg-emerald-50" />
+                <StatCard label="Teacher Salaries" val={stats.sal} color="text-rose-500" bgColor="bg-rose-50" />
+                <StatCard label="Other Expenses" val={stats.exp - stats.sal} color="text-orange-500" bgColor="bg-orange-50" />
+                <div className="bg-[#9853eb] p-6 rounded-[24px] text-white shadow-lg shadow-purple-200 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <p className="text-xs font-semibold text-purple-100 uppercase tracking-wider mb-2 relative z-10">Net Balance</p>
+                    <h3 className="text-3xl font-black tracking-tight relative z-10">{formatCurrency(stats.bal)}</h3>
                 </div>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-50 overflow-hidden">
-                <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
-                    <h2 className="font-black text-[10px] uppercase tracking-widest text-slate-400">Transaction History</h2>
-                    <div className="flex bg-slate-50 p-1 rounded-2xl">
+            {/* Transactions Table */}
+            <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 className="font-bold text-sm uppercase tracking-wider text-slate-800">Transaction History</h2>
+                    <div className="flex bg-slate-50 p-1 rounded-[12px] border border-slate-100">
                         {["All", "Income", "Expense"].map(f => (
-                            <button key={f} onClick={() => setFilter(f)} className={`px-6 md:px-8 py-2 rounded-xl font-black text-[9px] uppercase transition-all ${filter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{f}</button>
+                            <button 
+                                key={f} 
+                                onClick={() => setFilter(f)} 
+                                className={`px-6 py-1.5 rounded-[8px] font-bold text-xs transition-all ${
+                                    filter === f 
+                                    ? 'bg-white text-[#9853eb] shadow-sm' 
+                                    : 'text-slate-400 hover:text-slate-600'
+                                }`}
+                            >
+                                {f}
+                            </button>
                         ))}
                     </div>
                 </div>
+                
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="text-slate-300 text-[10px] uppercase font-black tracking-widest border-b bg-slate-50/50">
-                                <th className="px-10 py-6">Date</th>
-                                <th className="px-10 py-6">Category</th>
-                                <th className="px-10 py-6">Reference</th>
-                                <th className="px-10 py-6 text-right">Amount</th>
-                                <th className="px-10 py-6 text-center">Source</th>
+                            <tr className="text-slate-400 text-[11px] uppercase font-bold tracking-wider bg-slate-50/50 border-b border-slate-100">
+                                <th className="px-8 py-5">Date</th>
+                                <th className="px-8 py-5">Category</th>
+                                <th className="px-8 py-5">Details</th>
+                                <th className="px-8 py-5 text-right">Amount</th>
+                                <th className="px-8 py-5 text-center">Action/Source</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-100">
                             {combinedList.map((t, idx) => (
-                                <tr key={t.id + idx} className="hover:bg-indigo-50/30 transition-all duration-300 group">
-                                    <td className="px-10 py-6 font-bold text-slate-400 text-[11px]">{formatDate(t.date)}</td>
-                                    <td className="px-10 py-6">
-                                        <span className={`px-4 py-1.5 rounded-full font-black text-[8px] uppercase tracking-widest ${t.type === 'Income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                            {t.category}
+                                <tr key={t.id + idx} className="hover:bg-slate-50 transition-colors group">
+                                    <td className="px-8 py-4 font-medium text-slate-500 text-xs">
+                                        {formatDate(t.date)}
+                                    </td>
+                                    <td className="px-8 py-4">
+                                        <span className={`px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wide ${
+                                            t.type === 'Income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+                                        }`}>
+                                            {t.type === 'Income' ? 'INCOME' : 'EXPENSE'}
                                         </span>
                                     </td>
-                                    <td className="px-10 py-6 text-slate-600 font-black text-xs italic tracking-tight">{t.note}</td>
-                                    <td className={`px-10 py-6 text-right font-black text-sm ${t.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    <td className="px-8 py-4 text-slate-700 font-semibold text-sm">
+                                        {t.note}
+                                    </td>
+                                    <td className={`px-8 py-4 text-right font-black text-sm ${
+                                        t.type === 'Income' ? 'text-emerald-600' : 'text-slate-800'
+                                    }`}>
                                         {t.type === 'Income' ? '+' : '-'}{formatCurrency(t.amount)}
                                     </td>
-                                    <td className="px-10 py-6 text-center">
+                                    <td className="px-8 py-4 text-center flex justify-center items-center">
                                         {t.source === 'manual' ? (
-                                            <button onClick={() => deleteDoc(doc(db, 'sessions', activeSession, 'accounts', t.id)).then(fetchData)} className="text-slate-200 hover:text-rose-600 transition-colors"><HiTrash className="mx-auto w-5 h-5"/></button>
+                                            <button 
+                                                onClick={() => deleteDoc(doc(db, 'sessions', activeSession, 'accounts', t.id)).then(fetchData)} 
+                                                className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-500 rounded-lg transition-colors"
+                                                title="Delete Entry"
+                                            >
+                                                <HiTrash className="w-5 h-5"/>
+                                            </button>
                                         ) : (
-                                            t.source === 'fees' ? <HiAcademicCap className="text-indigo-300 mx-auto w-6 h-6"/> : <HiUserGroup className="text-orange-200 mx-auto w-6 h-6"/>
+                                            <div className="p-2 text-slate-300 bg-slate-50 rounded-lg" title={`System Generated: ${t.source}`}>
+                                                {t.source === 'fees' ? <HiAcademicCap className="w-5 h-5 text-emerald-400"/> : <HiUserGroup className="w-5 h-5 text-blue-400"/>}
+                                            </div>
                                         )}
                                     </td>
                                 </tr>
                             ))}
+                            {combinedList.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" className="px-8 py-12 text-center text-slate-400 font-medium flex flex-col items-center justify-center">
+                                        <HiOutlineDocumentText className="w-12 h-12 text-slate-200 mb-2" />
+                                        No transactions found for this filter.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
+            {/* Add Entry Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[3rem] p-10 w-full max-w-md shadow-2xl">
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-2xl font-black uppercase italic tracking-tighter">Manual Entry</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-300 hover:text-rose-500 transition"><HiX className="w-8 h-8"/></button>
+                <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[24px] p-8 w-full max-w-md shadow-2xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800">Add Entry</h3>
+                                <p className="text-[10px] font-bold text-[#9853eb] uppercase tracking-wider mt-1">Session {activeSession}</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 p-2 rounded-full transition-colors">
+                                <HiX className="w-5 h-5"/>
+                            </button>
                         </div>
-                        <p className="text-[10px] font-black text-indigo-600 mb-4 uppercase tracking-[0.2em]">Adding to Session {activeSession}</p>
-                        <div className="flex bg-slate-50 p-1 rounded-[1.5rem] mb-6">
-                            <button onClick={() => setEntryType("Expense")} className={`flex-1 py-4 rounded-[1.2rem] font-black text-[9px] tracking-widest ${entryType === 'Expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-300'}`}>EXPENSE</button>
-                            <button onClick={() => setEntryType("Income")} className={`flex-1 py-4 rounded-[1.2rem] font-black text-[9px] tracking-widest ${entryType === 'Income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-300'}`}>INCOME</button>
+                        
+                        <div className="flex bg-slate-50 p-1.5 rounded-[12px] mb-6 border border-slate-100">
+                            <button 
+                                onClick={() => setEntryType("Expense")} 
+                                className={`flex-1 py-2 rounded-[8px] font-bold text-xs transition-all ${entryType === 'Expense' ? 'bg-white text-rose-500 shadow-sm border border-slate-100' : 'text-slate-400'}`}
+                            >
+                                EXPENSE
+                            </button>
+                            <button 
+                                onClick={() => setEntryType("Income")} 
+                                className={`flex-1 py-2 rounded-[8px] font-bold text-xs transition-all ${entryType === 'Income' ? 'bg-white text-emerald-600 shadow-sm border border-slate-100' : 'text-slate-400'}`}
+                            >
+                                INCOME
+                            </button>
                         </div>
-                        <input type="number" placeholder="Amount (INR)" className="w-full p-5 bg-slate-50 border border-transparent focus:border-indigo-500 rounded-3xl mb-4 font-black text-lg outline-none transition-all" value={amount} onChange={e => setAmount(e.target.value)}/>
-                        <input type="text" placeholder="Entry Details" className="w-full p-5 bg-slate-50 border border-transparent focus:border-indigo-500 rounded-3xl mb-6 font-bold outline-none transition-all" value={note} onChange={e => setNote(e.target.value)}/>
-                        <button className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] tracking-widest uppercase shadow-xl hover:bg-indigo-600 transition-all" onClick={async () => {
-                            if(!amount) return;
-                            // Updated path to sessions > activeSession > accounts
-                            const manualRef = doc(collection(db, 'sessions', activeSession, 'accounts'));
-                            await setDoc(manualRef, { 
-                                type: entryType, 
-                                amount: Number(amount), 
-                                note, 
-                                date: Timestamp.now(), 
-                                category: note 
-                            });
-                            setIsModalOpen(false); setAmount(""); setNote(""); fetchData();
-                        }}>Confirm Transaction</button>
+                        
+                        <div className="space-y-4 mb-8">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-2 mb-1 block">Amount (INR)</label>
+                                <input 
+                                    type="number" 
+                                    placeholder="e.g. 5000" 
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-[#9853eb] focus:bg-white rounded-[12px] font-bold text-slate-800 outline-none transition-all" 
+                                    value={amount} 
+                                    onChange={e => setAmount(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-2 mb-1 block">Category / Details</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. Building Repair, Donation" 
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-[#9853eb] focus:bg-white rounded-[12px] font-medium text-slate-700 outline-none transition-all" 
+                                    value={note} 
+                                    onChange={e => setNote(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <button 
+                            className="w-full py-3.5 bg-[#9853eb] text-white rounded-[12px] font-bold text-sm shadow-md shadow-purple-200 hover:bg-[#8645d4] transition-all" 
+                            onClick={async () => {
+                                if(!amount || !note) return;
+                                const manualRef = doc(collection(db, 'sessions', activeSession, 'accounts'));
+                                await setDoc(manualRef, { 
+                                    type: entryType.toLowerCase(), // Saved as lowercase to match existing db structure
+                                    amount: Number(amount), 
+                                    category: note, 
+                                    date: Timestamp.now()
+                                });
+                                setIsModalOpen(false); setAmount(""); setNote(""); fetchData();
+                            }}
+                        >
+                            Save Transaction
+                        </button>
                     </div>
                 </div>
             )}
@@ -272,11 +357,12 @@ export default function SchoolExpensePortal() {
     );
 }
 
-function StatCard({ label, val, color }) {
+function StatCard({ label, val, color, bgColor }) {
     return (
-        <div className="bg-white p-7 rounded-[2rem] border border-slate-100 shadow-sm group hover:shadow-lg transition-all duration-500">
-            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">{label}</p>
-            <h3 className={`text-2xl font-black ${color} tracking-tight`}>{formatCurrency(val)}</h3>
+        <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            <div className={`absolute -right-4 -top-4 w-16 h-16 ${bgColor} rounded-full opacity-50`}></div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 relative z-10">{label}</p>
+            <h3 className={`text-2xl font-black ${color} tracking-tight relative z-10`}>{formatCurrency(val)}</h3>
         </div>
     );
 }

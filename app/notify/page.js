@@ -76,7 +76,7 @@ export default function NotifyPage() {
     setUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', 'student_preset'); // <--- CHANGE THIS
+    formData.append('upload_preset', 'student_preset');
 
     try {
       const res = await fetch(`https://api.cloudinary.com/v1_1/db6ssceun/image/upload`, {
@@ -89,6 +89,7 @@ export default function NotifyPage() {
     finally { setUploading(false); }
   };
 
+  // UPDATED DISPATCH FUNCTION
   const handleDispatch = async (e) => {
     e.preventDefault();
     if (!activeSession) return alert("Session not loaded");
@@ -99,6 +100,7 @@ export default function NotifyPage() {
         ...payload,
         imageUrl: payload.imageUrl || "", 
         targetGroup: target,
+        fcmStatus: "pending", // This triggers your Cloud Function to send the notification
         createdAt: serverTimestamp()
       });
       alert("Notification Dispatched!");
@@ -123,7 +125,6 @@ export default function NotifyPage() {
 
       <div className="grid lg:grid-cols-12 gap-10">
         <form onSubmit={handleDispatch} className="lg:col-span-7 bg-white p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 space-y-6">
-          
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Audience Selection</label>
             <div className="grid grid-cols-4 gap-2">
@@ -201,7 +202,6 @@ export default function NotifyPage() {
               </div>
             )}
 
-            {/* Other targets (teachers/class) selectors remain same as your previous logic */}
             {target === 'teachers' && (
               <select className="w-full p-4 bg-slate-50 border rounded-2xl font-bold" onChange={(e) => setPayload({...payload, targetId: e.target.value, targetName: e.target.options[e.target.selectedIndex].text})}>
                 <option value="all">All Teachers</option>

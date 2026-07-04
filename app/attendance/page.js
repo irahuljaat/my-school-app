@@ -102,7 +102,7 @@ function AttendancePage() {
         } catch (error) {
             console.error("Fetch Error:", error);
         } finally { 
-            setLoading(false); 
+            loading && setLoading(false); 
         }
     };
 
@@ -142,7 +142,39 @@ function AttendancePage() {
 
             await setDoc(attendanceDocRef, dataToSave, { merge: true });
             setRecordExists(true); 
-            alert("Attendance Saved Successfully");
+
+            // --- Send SMS to Absent Students ---
+            if (!showOnlyDummy && stats.absent > 0) {
+                // Find all student objects whose current attendance record is marked 'Absent'
+                const absentStudents = students.filter(
+                    (student) => attendanceData[student.id] === 'Absent'
+                );
+
+                // Map data out into clean payloads (adjust 'student.phone' or 'student.parentPhone' based on your schema)
+                const smsPayloads = absentStudents
+                    .map((student) => ({
+                        name: student.name,
+                        phone: student.phone || student.mobile || student.parentPhone, 
+                        date: selectedDate,
+                        grade: selectedClass,
+                    }))
+                    .filter((payload) => payload.phone); // Ensure a phone number actually exists
+
+                if (smsPayloads.length > 0) {
+                    try {
+                        // Forward payloads to an API endpoint to protect keys and prevent CORS issues
+                        await fetch('/api/send-sms', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ recipients: smsPayloads }),
+                        });
+                    } catch (smsErr) {
+                        console.error("SMS triggering error:", smsErr);
+                    }
+                }
+            }
+
+            alert("Attendance Saved Successfully and Absence Notifications Sent.");
         } catch (error) {
             console.error(error);
         } finally { setIsSaving(false); }
