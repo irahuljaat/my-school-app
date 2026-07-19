@@ -6,10 +6,8 @@ import Image from 'next/image';
 import { HiPrinter, HiX, HiCheck, HiBadgeCheck } from 'react-icons/hi';
 import { useReactToPrint } from 'react-to-print';
 
-
-
 const SCHOOL_LOGO_URL = "https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png";
-const SCHOOL_NAME = "MVG PUBLIC SCHOOL";
+const SCHOOL_NAME = "MVG PUBLIC SENIOR SECONDARY SCHOOL";
 const SCHOOL_ADDRESS = "Shyopur, Pratap Nagar, Sanganer, Jaipur";
 const SCHOOL_CONTACT = "+0141-3152600, 9829018332";
 
@@ -51,25 +49,22 @@ const numberToWords = (num) => {
     return str.trim().charAt(0).toUpperCase() + str.trim().slice(1) + ' Rupees Only.';
 };
 
-
-
-
-
 const ReceiptCopy = ({ student, paymentRecord, feeHistory, copyType, isLastCopy, receiptNumber }) => {
     let cumulativeTotal = 0;
     
     return (
-        <div className={`relative w-full p-8 bg-white print:h-[49.5vh] flex flex-col border-black ${!isLastCopy ? 'border-b-2 border-dashed' : ''}`}>
+        /* Fixed height to exactly half an A4 page (148.5mm) to guarantee 2 slips per page */
+        <div className={`relative w-full p-6 bg-white h-[148.5mm] flex flex-col border-black overflow-hidden box-border ${!isLastCopy ? 'border-b-2 border-dashed' : ''}`}>
             
             {/* Header: Fixed Height */}
-            <header className="shrink-0 pb-3 border-b-2 border-slate-900">
+            <header className="shrink-0 pb-2 border-b-2 border-slate-900">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-4">
-                        <div className="relative w-12 h-12">
+                        <div className="relative w-10 h-10">
                             <Image src={SCHOOL_LOGO_URL} alt="Logo" fill className="object-contain"/>
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black tracking-tight text-slate-900">{SCHOOL_NAME}</h1>
+                            <h1 className="text-xl font-black tracking-tight text-slate-900">{SCHOOL_NAME}</h1>
                             <p className="text-[9px] font-bold text-slate-500 uppercase">{SCHOOL_ADDRESS}</p>
                         </div>
                     </div>
@@ -82,21 +77,37 @@ const ReceiptCopy = ({ student, paymentRecord, feeHistory, copyType, isLastCopy,
                 </div>
             </header>
 
-            {/* Meta & Student Info: Fixed Height */}
+            {/* Meta & Student Info: Updated with exact database fields (srNo & fatherName) */}
             <div className="shrink-0">
-                <div className="flex justify-between py-3 text-[10px] font-bold border-b border-slate-100">
+                <div className="flex justify-between py-2 text-[10px] font-bold border-b border-slate-100">
                     <p>RECEIPT: <span className="font-black text-indigo-600">#{receiptNumber}</span></p>
                     <p>DATE: {formatDate(paymentRecord.date)}</p>
                     <p className="text-emerald-600 font-black">STATUS: PAID</p>
                 </div>
-                <div className="bg-slate-50 p-2 my-2 rounded-lg border border-slate-100 flex justify-between">
-                    <p className="text-[10px] font-black uppercase">Student: {student?.name || paymentRecord.name}</p>
-                    <p className="text-[10px] font-black uppercase">Class: {student?.grade || paymentRecord.grade}</p>
+                
+                {/* 2x2 Grid for Student Information */}
+                <div className="bg-slate-50 p-2 my-2 rounded-lg border border-slate-100 grid grid-cols-2 gap-y-1">
+                    <p className="text-[10px] font-black uppercase">
+                        <span className="text-slate-500 mr-1">SR No:</span> 
+                        {student?.srNo || paymentRecord?.srNo || 'N/A'}
+                    </p>
+                    <p className="text-[10px] font-black uppercase text-right">
+                        <span className="text-slate-500 mr-1">Class:</span> 
+                        {student?.grade || paymentRecord?.grade || 'N/A'}
+                    </p>
+                    <p className="text-[10px] font-black uppercase">
+                        <span className="text-slate-500 mr-1">Student:</span> 
+                        {student?.name || paymentRecord?.name || 'N/A'}
+                    </p>
+                    <p className="text-[10px] font-black uppercase text-right">
+                        <span className="text-slate-500 mr-1">Father:</span> 
+                        {student?.fatherName || paymentRecord?.fatherName || 'N/A'}
+                    </p>
                 </div>
             </div>
 
-            {/* Table: This section will GROW to fill the space regardless of row count */}
-            <div className="flex-grow overflow-hidden pt-2">
+            {/* Table: Grows to fill available space */}
+            <div className="flex-grow overflow-hidden pt-1">
                 <table className="w-full text-[10px]">
                     <thead className="border-b border-slate-200">
                         <tr className="text-slate-400 font-black uppercase tracking-widest">
@@ -121,8 +132,8 @@ const ReceiptCopy = ({ student, paymentRecord, feeHistory, copyType, isLastCopy,
                 </table>
             </div>
 
-            {/* Footer: Stays pinned at the bottom of the 49.5vh container */}
-            <footer className="shrink-0 mt-auto pt-4 border-t border-slate-900">
+            {/* Footer: Pinned at the bottom */}
+            <footer className="shrink-0 mt-auto pt-3 border-t border-slate-900">
                 <div className="flex justify-between items-end">
                     <div className="max-w-xs">
                         <p className="text-[8px] font-black text-slate-400 uppercase">Words</p>
@@ -144,19 +155,25 @@ const ReceiptCopy = ({ student, paymentRecord, feeHistory, copyType, isLastCopy,
 };
 
 const ComponentToPrint = forwardRef(({ student, paymentRecord, feeHistory, copies, receiptNumber }, ref) => (
-    <div ref={ref} className="bg-white">
-        {/* CSS to force scale and layout */}
+    <div ref={ref} className="bg-white print-container">
+        {/* CSS to force strictly 1 page (A4 size) with no overflows */}
         <style dangerouslySetInnerHTML={{ __html: `
             @media print {
                 @page { 
-                    size: A4; 
+                    size: A4 portrait; 
                     margin: 0; 
                 }
                 body { 
                     -webkit-print-color-adjust: exact; 
+                    margin: 0;
                 }
-                div { 
-                    zoom: 97%; 
+                .print-container {
+                    width: 210mm;
+                    height: 297mm;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    background: white;
                 }
             }
         `}} />
@@ -187,7 +204,6 @@ export default function FeesReceipt({ student, paymentRecord, feeHistory, onClos
 
     const toggleCopy = (type) => {
         const current = [...selectedCopies];
-        // Enforce max 2 copies to maintain the 2-slips-per-page logic
         if (current.includes(type)) {
             setSelectedCopies(current.filter(t => t !== type));
         } else if (current.length < 2) {
@@ -204,8 +220,8 @@ export default function FeesReceipt({ student, paymentRecord, feeHistory, onClos
                 {/* Toolbar */}
                 <div className="px-8 py-4 border-b bg-white flex justify-between items-center shrink-0">
                     <div>
-                        <h3 className="text-base font-black text-slate-900 tracking-tight">Print Layout (97% Scale)</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Max 2 copies per page</p>
+                        <h3 className="text-base font-black text-slate-900 tracking-tight">Print Layout</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Exactly 2 copies per page</p>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -223,7 +239,7 @@ export default function FeesReceipt({ student, paymentRecord, feeHistory, onClos
                         <button 
                             onClick={() => handlePrint()} 
                             disabled={selectedCopies.length === 0}
-                            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
                         >
                             <HiPrinter className="w-4 h-4" /> Print
                         </button>
