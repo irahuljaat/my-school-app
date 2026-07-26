@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HiUpload, HiSave, HiX, HiPencilAlt, HiUserCircle } from 'react-icons/hi';
-import { doc, updateDoc } from 'firebase/firestore'; 
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore'; 
 import { db } from '../firebase/config'; 
 import Image from 'next/image';
 
@@ -31,12 +31,45 @@ const uploadImageToCloudinary = async (file) => {
 };
 
 function TeacherEditForm({ teacherData, onSuccess }) {
-    // Initialize form with existing teacher data
-    const [formData, setFormData] = useState(teacherData);
+    // Initialize form with existing teacher data, ensuring arrays for assigned features/classes
+    const [formData, setFormData] = useState({
+        ...teacherData,
+        assignedClasses: teacherData.assignedClasses || [],
+        assignedFeatures: teacherData.assignedFeatures || []
+    });
+    
+    const [availableClasses, setAvailableClasses] = useState([]);
+    const [availableFeatures, setAvailableFeatures] = useState([]);
+    
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [imageFile, setImageFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(teacherData.imageUrl || '');
+
+    // Fetch classes and features lists from Firestore to display options
+    useEffect(() => {
+        const fetchMetadata = async () => {
+            try {
+                // Adjust collection names as per your database schema ('classes', 'features' or similar)
+                const classesSnapshot = await getDocs(collection(db, 'classes'));
+                const classList = classesSnapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    name: docSnap.data().className || docSnap.data().name || docSnap.id
+                }));
+                setAvailableClasses(classList);
+
+                const featuresSnapshot = await getDocs(collection(db, 'features'));
+                const featureList = featuresSnapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    name: docSnap.data().featureName || docSnap.data().name || docSnap.id
+                }));
+                setAvailableFeatures(featureList);
+            } catch (err) {
+                console.error("Error fetching assignment metadata:", err);
+            }
+        };
+        fetchMetadata();
+    }, []);
 
     // Memory cleanup for image previews
     useEffect(() => {
@@ -50,6 +83,17 @@ function TeacherEditForm({ teacherData, onSuccess }) {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCheckboxChange = (field, itemValue) => {
+        setFormData(prev => {
+            const currentList = prev[field] || [];
+            if (currentList.includes(itemValue)) {
+                return { ...prev, [field]: currentList.filter(item => item !== itemValue) };
+            } else {
+                return { ...prev, [field]: [...currentList, itemValue] };
+            }
+        });
     };
 
     const handleImageChange = (e) => {
@@ -75,7 +119,6 @@ function TeacherEditForm({ teacherData, onSuccess }) {
             }
 
             // 2. Prepare clean data for Firestore
-            // We destructure 'id' to ensure we don't save the document ID as a field inside the doc
             const { id, ...cleanData } = formData;
             
             const dataToUpdate = {
@@ -131,6 +174,8 @@ function TeacherEditForm({ teacherData, onSuccess }) {
                 <div className={`mb-8 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest border ${
                     message.type === 'error' 
                         ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                        : message.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                         : 'bg-blue-50 text-blue-600 border-blue-100'
                 }`}>
                     {message.text}
@@ -267,6 +312,68 @@ function TeacherEditForm({ teacherData, onSuccess }) {
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
                         />
+                    </div>
+                </div>
+
+                {/* Assigned Classes Selection */}
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Assigned Classes</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {availableClasses.length > 0 ? (
+                            availableClasses.map((cls) => {
+                                const isSelected = formData.assignedClasses?.includes(cls.name);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={cls.id}
+                                        onClick={() => handleCheckboxChange('assignedClasses', cls.name)}
+                                        className={`p-3 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${
+                                            isSelected 
+                                                ? 'bg-purple-50 border-purple-200 text-purple-700 shadow-sm' 
+                                                : 'bg-[#F8F9FD] border-transparent text-[#303972] hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <span>{cls.name}</span>
+                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isSelected ? 'bg-purple-600 text-white' : 'border border-slate-300'}`}>
+                                            {isSelected ? '✓' : ''}
+                                        </span>
+                                    </button>
+                                );
+                            })
+                        ) : (
+                            <p className="text-xs text-slate-400 italic">No classes found in database.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Assigned Features / Permissions Selection */}
+                <div className="space-y-3 pt-4">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Assigned Features / Modules</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {availableFeatures.length > 0 ? (
+                            availableFeatures.map((feat) => {
+                                const isSelected = formData.assignedFeatures?.includes(feat.name);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={feat.id}
+                                        onClick={() => handleCheckboxChange('assignedFeatures', feat.name)}
+                                        className={`p-3 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${
+                                            isSelected 
+                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' 
+                                                : 'bg-[#F8F9FD] border-transparent text-[#303972] hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <span>{feat.name}</span>
+                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isSelected ? 'bg-indigo-600 text-white' : 'border border-slate-300'}`}>
+                                            {isSelected ? '✓' : ''}
+                                        </span>
+                                    </button>
+                                );
+                            })
+                        ) : (
+                            <p className="text-xs text-slate-400 italic">No features found in database.</p>
+                        )}
                     </div>
                 </div>
 

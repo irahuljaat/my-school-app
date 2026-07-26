@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { HiUpload, HiSave, HiX, HiUserAdd, HiUserCircle, HiIdentification, HiPhone, HiMail, HiAcademicCap, HiBookOpen, HiCurrencyRupee, HiCalendar } from 'react-icons/hi';
-import { collection, addDoc } from 'firebase/firestore'; 
+import { doc, setDoc } from 'firebase/firestore'; 
 import { db } from '../firebase/config'; 
 import Image from 'next/image';
 
-// --- CORE LOGIC (UNCHANGED) ---
+// --- CORE LOGIC ---
 
 const uploadImageToCloudinary = async (file) => {
     if (!file) return null;
@@ -31,14 +31,26 @@ const uploadImageToCloudinary = async (file) => {
     return data.secure_url;
 };
 
-const addTeacherToFirebase = async (teacherData) => {
-    const teachersCollection = collection(db, 'teachers');
-    const docRef = await addDoc(teachersCollection, teacherData);
-    return { id: docRef.id };
-};
+// Fixed 9 Features as shown in the requirement
+const FIXED_FEATURES = [
+    "Attendance",
+    "Homework",
+    "Marks",
+    "Timetable",
+    "Notices",
+    "Gallery",
+    "Fee Status",
+    "Leave",
+    "Messages"
+];
+
+// Available classes options
+const AVAILABLE_CLASSES = ["LKG", "UKG", "PREP", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 const INITIAL_TEACHER_STATE = {
+    employeeId: '',
     name: '',
+    teacherName: '',
     phone: '',
     email: '',
     address: '',
@@ -46,8 +58,12 @@ const INITIAL_TEACHER_STATE = {
     subjectsTaught: '',
     salary: '',
     joiningDate: new Date().toISOString().split('T')[0],
+    dob: '',
+    gender: 'MALE',
+    bloodGroup: '',
+    designation: '',
+    experience: '',
     imageUrl: '', 
-    srNo: '', 
 };
 
 // --- UI COMPONENT ---
@@ -58,6 +74,14 @@ function AddTeacherForm({ onSuccess }) {
     const [message, setMessage] = useState(null);
     const [imageFile, setImageFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
+    
+    // Feature selection state (Defaulting all 9 fixed options to checked/true)
+    const [assignedFeatures, setAssignedFeatures] = useState(
+        FIXED_FEATURES.reduce((acc, feature) => ({ ...acc, [feature]: true }), {})
+    );
+
+    // Classes selection state
+    const [selectedClasses, setSelectedClasses] = useState([]);
 
     // Sync preview URL when file changes
     useEffect(() => {
@@ -75,6 +99,16 @@ function AddTeacherForm({ onSuccess }) {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFeatureToggle = (feature) => {
+        setAssignedFeatures(prev => ({ ...prev, [feature]: !prev[feature] }));
+    };
+
+    const handleClassToggle = (cls) => {
+        setSelectedClasses(prev => 
+            prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]
+        );
+    };
+
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -88,8 +122,8 @@ function AddTeacherForm({ onSuccess }) {
         setIsLoading(true);
         setMessage(null);
 
-        if (!formData.name || !formData.phone || !formData.salary || !formData.srNo) {
-            setMessage({ type: 'error', text: 'Required fields: Name, Phone, Salary, and ID No.' });
+        if (!formData.name || !formData.phone || !formData.salary || !formData.employeeId) {
+            setMessage({ type: 'error', text: 'Required fields: Name, Phone, Salary, and Employee ID.' });
             setIsLoading(false);
             return;
         }
@@ -101,20 +135,57 @@ function AddTeacherForm({ onSuccess }) {
                 uploadedImageUrl = await uploadImageToCloudinary(imageFile); 
             }
 
+            const formattedName = formData.name.trim().toUpperCase();
+            const empId = formData.employeeId.trim();
+
+            // Generate ID and Password as specified:
+            // ID :- NAMEEMPLOYEEID (e.g. RAHULCHOUDHARY001)
+            const docId = `${formattedName.replace(/\s+/g, '')}${empId}`;
+
+            // Password: NAME'S FIRST WORD@EMPLOYEEID (e.g. Rahul@001)
+            const firstName = formattedName.split(' ')[0];
+            const capitalizedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+            const password = `${capitalizedFirstName}@${empId}`;
+
+            // Filter checked features into an array
+            const activeFeaturesList = Object.keys(assignedFeatures).filter(f => assignedFeatures[f]);
+
             const finalData = {
-                ...formData,
+                employeeId: empId,
+                employId: empId,
+                name: formattedName,
+                teacherName: formattedName,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                qualification: formData.qualification,
+                subjectsTaught: formData.subjectsTaught,
+                salary: Number(formData.salary),
+                joiningDate: formData.joiningDate,
+                dob: formData.dob,
+                gender: formData.gender,
+                bloodGroup: formData.bloodGroup,
+                designation: formData.designation,
+                experience: formData.experience,
                 imageUrl: uploadedImageUrl,
-                status: 'Active',
-                createdAt: Date.now(),
-                salary: Number(formData.salary)
+                assignedFeatures: activeFeaturesList,
+                classes: selectedClasses,
+                loginentails: {
+                    password: password
+                },
+                lastUpdated: new Date().toUTCString()
             };
 
             setMessage({ type: 'info', text: 'Registering teacher in database...' });
-            await addTeacherToFirebase(finalData);
+            
+            // Save to Firestore using custom document ID matching structure in image
+            const teacherDocRef = doc(db, 'teachers', docId);
+            await setDoc(teacherDocRef, finalData);
 
-            setMessage({ type: 'success', text: 'Teacher successfully registered!' });
+            setMessage({ type: 'success', text: `Teacher successfully registered! ID: ${docId}` });
             setFormData(INITIAL_TEACHER_STATE);
             setImageFile(null);
+            setSelectedClasses([]);
             
             setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
 
@@ -136,7 +207,7 @@ function AddTeacherForm({ onSuccess }) {
                         </div>
                         Add New Educator
                     </h2>
-                    <p className="text-sm font-medium text-slate-400 mt-2">Enter the professional details to register a new staff member.</p>
+                    <p className="text-sm font-medium text-slate-400 mt-2">Enter professional details, assigned classes, and feature permissions.</p>
                 </div>
             </div>
 
@@ -185,15 +256,15 @@ function AddTeacherForm({ onSuccess }) {
                 {/* Form Inputs Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
                     
-                    {/* SR NO / ID */}
+                    {/* Employee ID */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                            <HiIdentification className="text-green-500" /> Teacher ID / SR No *
+                            <HiIdentification className="text-green-500" /> Employee ID *
                         </label>
                         <input
-                            name="srNo"
-                            placeholder="e.g. T-2024-001"
-                            value={formData.srNo}
+                            name="employeeId"
+                            placeholder="e.g. 001"
+                            value={formData.employeeId}
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
                             required
@@ -207,11 +278,25 @@ function AddTeacherForm({ onSuccess }) {
                         </label>
                         <input
                             name="name"
-                            placeholder="Enter full name"
+                            placeholder="e.g. Rahul Choudhary"
                             value={formData.name}
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
                             required
+                        />
+                    </div>
+
+                    {/* Designation */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Designation
+                        </label>
+                        <input
+                            name="designation"
+                            placeholder="e.g. Social Science Teacher"
+                            value={formData.designation}
+                            onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
                         />
                     </div>
 
@@ -222,7 +307,7 @@ function AddTeacherForm({ onSuccess }) {
                         </label>
                         <input
                             name="phone"
-                            placeholder="+91 00000 00000"
+                            placeholder="988710342"
                             value={formData.phone}
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
@@ -252,7 +337,7 @@ function AddTeacherForm({ onSuccess }) {
                         </label>
                         <input
                             name="qualification"
-                            placeholder="e.g. M.A., B.Ed."
+                            placeholder="e.g. B.A, B.ED"
                             value={formData.qualification}
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
@@ -262,7 +347,7 @@ function AddTeacherForm({ onSuccess }) {
                     {/* Subjects */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                            <HiBookOpen className="text-green-500" /> Subjects
+                            <HiBookOpen className="text-green-500" /> Subjects Taught
                         </label>
                         <input
                             name="subjectsTaught"
@@ -289,15 +374,76 @@ function AddTeacherForm({ onSuccess }) {
                         />
                     </div>
 
-                    {/* Date */}
+                    {/* Joining Date */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
                             <HiCalendar className="text-green-500" /> Joining Date
                         </label>
                         <input
-                            type="date"
+                            type="text"
                             name="joiningDate"
+                            placeholder="e.g. 01-07-2025"
                             value={formData.joiningDate}
+                            onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
+                        />
+                    </div>
+
+                    {/* DOB */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Date of Birth (DOB)
+                        </label>
+                        <input
+                            type="text"
+                            name="dob"
+                            placeholder="e.g. 11-11-2004"
+                            value={formData.dob}
+                            onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
+                        />
+                    </div>
+
+                    {/* Gender */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Gender
+                        </label>
+                        <select
+                            name="gender"
+                            value={formData.gender}
+                            onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
+                        >
+                            <option value="MALE">MALE</option>
+                            <option value="FEMALE">FEMALE</option>
+                            <option value="OTHER">OTHER</option>
+                        </select>
+                    </div>
+
+                    {/* Blood Group */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Blood Group
+                        </label>
+                        <input
+                            name="bloodGroup"
+                            placeholder="e.g. A+"
+                            value={formData.bloodGroup}
+                            onChange={handleChange}
+                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
+                        />
+                    </div>
+
+                    {/* Experience */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Experience
+                        </label>
+                        <input
+                            name="experience"
+                            placeholder="e.g. 1 Year"
+                            value={formData.experience}
                             onChange={handleChange}
                             className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-green-200 focus:bg-white transition-all outline-none"
                         />
@@ -309,7 +455,7 @@ function AddTeacherForm({ onSuccess }) {
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Residential Address</label>
                     <textarea
                         name="address"
-                        rows="3"
+                        rows="2"
                         placeholder="Enter full home address"
                         value={formData.address}
                         onChange={handleChange}
@@ -317,11 +463,58 @@ function AddTeacherForm({ onSuccess }) {
                     ></textarea>
                 </div>
 
+                {/* Assigned Features Checkboxes (Fixed 9 Options) */}
+                <div className="space-y-3 pt-4 border-t border-slate-50">
+                    <label className="text-xs font-black uppercase tracking-[0.2em] text-[#303972]">
+                        Assigned Features (Select Options)
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {FIXED_FEATURES.map((feature) => (
+                            <label key={feature} className="flex items-center gap-3 p-3 bg-[#F8F9FD] rounded-xl cursor-pointer hover:bg-slate-100 transition-all">
+                                <input
+                                    type="checkbox"
+                                    checked={!!assignedFeatures[feature]}
+                                    onChange={() => handleFeatureToggle(feature)}
+                                    className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                                />
+                                <span className="text-xs font-bold text-[#303972]">{feature}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Classes Selection Checkboxes */}
+                <div className="space-y-3 pt-4 border-t border-slate-50">
+                    <label className="text-xs font-black uppercase tracking-[0.2em] text-[#303972]">
+                        Assigned Classes
+                    </label>
+                    <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                        {AVAILABLE_CLASSES.map((cls) => (
+                            <label key={cls} className={`flex items-center justify-center gap-2 p-3 rounded-xl cursor-pointer border-2 transition-all ${
+                                selectedClasses.includes(cls) 
+                                ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
+                                : 'bg-[#F8F9FD] border-transparent text-[#303972]'
+                            }`}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedClasses.includes(cls)}
+                                    onChange={() => handleClassToggle(cls)}
+                                    className="hidden"
+                                />
+                                <span className="text-xs font-bold">Class {cls}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Submit Section */}
                 <div className="flex justify-end items-center gap-6 pt-10 border-t border-slate-50">
                     <button
                         type="button"
-                        onClick={() => setFormData(INITIAL_TEACHER_STATE)}
+                        onClick={() => {
+                            setFormData(INITIAL_TEACHER_STATE);
+                            setSelectedClasses([]);
+                        }}
                         className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
                     >
                         Reset Form

@@ -17,12 +17,11 @@ import {
     doc, 
     setDoc, 
     query, 
-    where, 
     Timestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config'; 
 
-// --- HELPER FUNCTIONS (UNCHANGED) ---
+// --- HELPER FUNCTIONS ---
 const getCurrentMonthYear = () => {
     const date = new Date();
     const year = date.getFullYear();
@@ -34,23 +33,22 @@ const getCurrentMonthDisplayName = () => {
     return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
 };
 
-// --- FIRESTORE INTEGRATION LOGIC (UNCHANGED) ---
+// --- FIRESTORE INTEGRATION LOGIC ---
 const fetchTeacherListWithSalary = async () => {
     try {
         const teachersCollection = collection(db, 'teachers');
-        const q = query(teachersCollection, where('status', '==', 'Active'));
-        const teacherSnapshot = await getDocs(q); 
+        const teacherSnapshot = await getDocs(teachersCollection); 
         
-        return teacherSnapshot.docs.map(doc => {
-            const data = doc.data();
+        return teacherSnapshot.docs.map(docSnap => {
+            const data = docSnap.data();
             const rawSalary = data.grossSalary || data.baseSalary || data.salary; 
             return {
-                id: doc.id, 
-                name: data.name,
+                id: docSnap.id, 
+                name: data.teacherName || data.name || 'Unknown Teacher',
                 designation: data.designation || 'Staff Member',
                 salary: parseFloat(rawSalary) || 0, 
                 bankAccount: data.bankAccount || 'N/A',
-                srNo: data.srNo || 'N/A', 
+                srNo: data.employeeId || data.employId || data.srNo || 'N/A', 
             };
         });
     } catch (error) {
@@ -62,15 +60,17 @@ const fetchTeacherListWithSalary = async () => {
 const fetchPaymentStatus = async (monthYear) => {
     try {
         const paymentsCollection = collection(db, 'salaryPayments');
-        const q = query(paymentsCollection, where('monthYear', '==', monthYear));
+        const q = query(paymentsCollection);
         const paymentSnapshot = await getDocs(q);
         const statusMap = {};
-        paymentSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            statusMap[data.teacherId] = {
-                status: 'Paid',
-                paymentDate: data.paymentDate ? data.paymentDate.toDate().toLocaleDateString() : 'N/A'
-            };
+        paymentSnapshot.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.monthYear === monthYear) {
+                statusMap[data.teacherId] = {
+                    status: 'Paid',
+                    paymentDate: data.paymentDate ? data.paymentDate.toDate().toLocaleDateString() : 'N/A'
+                };
+            }
         });
         return statusMap;
     } catch (error) {

@@ -1,4 +1,3 @@
-// components/TeacherAttendance.jsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -45,7 +44,16 @@ const formatDate = (date) => {
 const fetchTeacherList = async () => {
     const q = query(collection(db, 'teachers'), where('status', '==', 'Active')); 
     const snapshot = await getDocs(q); 
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            name: data.teacherName || data.name || 'Unknown Teacher',
+            srNo: data.employeeId || data.employId || data.srNo || 'N/A',
+            imageUrl: data.imageUrl || '',
+            ...data
+        };
+    });
 };
 
 const fetchAttendanceByDate = async (date) => {
@@ -112,6 +120,7 @@ function TeacherAttendance() {
             const recordsToSave = Object.entries(attendanceData).filter(([, r]) => r.status !== 'Pending');
             if (recordsToSave.length === 0) {
                 setMessage({ type: 'warning', text: 'No records marked.' });
+                setLoading(false);
                 return;
             }
 
@@ -129,12 +138,12 @@ function TeacherAttendance() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
             {/* Header with Date Selection */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
-                    <h2 className="text-xl font-bold" style={{ color: TEXT_NAVY }}>Daily Attendance</h2>
-                    <p className="text-xs font-medium" style={{ color: TEXT_MUTED }}>Mark and manage staff presence for {selectedDate === today ? 'Today' : selectedDate}</p>
+                    <h2 className="text-2xl font-bold" style={{ color: TEXT_NAVY }}>Daily Attendance</h2>
+                    <p className="text-xs font-medium mt-1" style={{ color: TEXT_MUTED }}>Mark and manage staff presence for {selectedDate === today ? 'Today' : selectedDate}</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
@@ -162,7 +171,7 @@ function TeacherAttendance() {
 
             {message && (
                 <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider animate-in fade-in slide-in-from-top-2 ${
-                    message.type === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
+                    message.type === 'error' ? 'bg-rose-50 text-rose-600' : message.type === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                 }`}>
                     {message.text}
                 </div>
@@ -187,8 +196,12 @@ function TeacherAttendance() {
                                 <tr key={teacher.id} className="group hover:bg-[#F8F9FD] transition-all">
                                     <td className="px-6 py-4 rounded-l-2xl bg-white border-y border-l border-transparent group-hover:border-slate-100">
                                         <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200 shrink-0">
-                                                <Image src={teacher.imageUrl || 'https://via.placeholder.com/150'} alt="" fill className="object-cover" />
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200 shrink-0 flex items-center justify-center font-bold text-[#303972]">
+                                                {teacher.imageUrl ? (
+                                                    <Image src={teacher.imageUrl} alt="" fill className="object-cover" />
+                                                ) : (
+                                                    teacher.name.charAt(0)
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="font-bold text-sm" style={{ color: TEXT_NAVY }}>{teacher.name}</div>
