@@ -12,10 +12,18 @@ import {
     HiOutlineAcademicCap, 
     HiOutlineExclamationCircle,
     HiOutlineViewGridAdd,
-    HiOutlineCheckCircle
+    HiOutlineCheckCircle,
+    HiOutlinePencilAlt,
+    HiOutlineX
 } from 'react-icons/hi';
 
 const MOCK_CLASSES = ['LKG','UKG','PREP' ,'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+
+const DEFAULT_SLOTS = [
+    { id: '1', label: 'Morning Slot', start: '09:00', end: '12:00' },
+    { id: '2', label: 'Mid-Day Slot', start: '10:00', end: '13:00' },
+    { id: '3', label: 'Afternoon Slot', start: '13:30', end: '16:30' },
+];
 
 const getTimeTableDocId = (examId, classes) => {
     if (!examId || classes.length === 0) return null;
@@ -39,6 +47,11 @@ function TimeTableCreator({ activeSession }) {
         startTime: '09:00', 
         endTime: '12:00' 
     });
+
+    // Shift Slot States
+    const [quickSlots, setQuickSlots] = useState(DEFAULT_SLOTS);
+    const [isManagingSlots, setIsManagingSlots] = useState(false);
+    const [newSlot, setNewSlot] = useState({ label: '', start: '08:00', end: '11:00' });
     
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -110,15 +123,33 @@ function TimeTableCreator({ activeSession }) {
     const handleAddScheduleItem = (e) => {
         e.preventDefault();
         if (!newScheduleItem.subject || !newScheduleItem.date) return;
-        if (schedule.some(item => item.date === newScheduleItem.date)) {
-            setMessage({ type: 'error', text: 'A subject is already scheduled for this date.' });
+        
+        const hasOverlap = schedule.some(item => {
+            if (item.date !== newScheduleItem.date) return false;
+            return newScheduleItem.startTime < item.endTime && newScheduleItem.endTime > item.startTime;
+        });
+
+        if (hasOverlap) {
+            setMessage({ type: 'error', text: 'An exam is already scheduled at an overlapping time on this date.' });
             return;
         }
+
         const updated = [...schedule, newScheduleItem];
         setSchedule(updated);
         const scheduledNames = updated.map(s => s.subject);
         const nextSub = assignedSubjects.find(s => !scheduledNames.includes(s.name))?.name || '';
         setNewScheduleItem({ ...newScheduleItem, subject: nextSub });
+    };
+
+    const handleAddSlot = (e) => {
+        e.preventDefault();
+        if (!newSlot.label) return;
+        setQuickSlots(prev => [...prev, { ...newSlot, id: Date.now().toString() }]);
+        setNewSlot({ label: '', start: '08:00', end: '11:00' });
+    };
+
+    const handleDeleteSlot = (id) => {
+        setQuickSlots(prev => prev.filter(slot => slot.id !== id));
     };
 
     const handleSaveTimetable = async () => {
@@ -216,9 +247,79 @@ function TimeTableCreator({ activeSession }) {
                         <div className="absolute -right-10 -bottom-10 opacity-10">
                             <HiOutlineViewGridAdd className="text-[12rem] text-white" />
                         </div>
-                        <h3 className="text-white font-bold mb-6 flex items-center gap-2">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                             <HiOutlinePlus className="text-indigo-400" /> Schedule New Subject
                         </h3>
+
+                        {/* Quick Preset Time Slot Selection & Management */}
+                        <div className="mb-6 relative z-10 bg-white/5 p-4 rounded-2xl border border-white/10">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-slate-400 font-medium">Quick Shift Slots:</span>
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsManagingSlots(!isManagingSlots)}
+                                    className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
+                                >
+                                    <HiOutlinePencilAlt /> {isManagingSlots ? 'Close Shifts Editor' : 'Edit Shifts'}
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {quickSlots.map((slot) => (
+                                    <div key={slot.id} className="relative group">
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewScheduleItem(prev => ({ ...prev, startTime: slot.start, endTime: slot.end }))}
+                                            className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all flex items-center gap-1 ${
+                                                newScheduleItem.startTime === slot.start && newScheduleItem.endTime === slot.end
+                                                    ? 'bg-indigo-500 border-indigo-400 text-white shadow'
+                                                    : 'bg-white/10 border-white/10 text-slate-300 hover:bg-white/20'
+                                            }`}
+                                        >
+                                            {slot.label} ({slot.start} - {slot.end})
+                                        </button>
+                                        {isManagingSlots && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteSlot(slot.id)}
+                                                className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-0.5 text-xs shadow hover:bg-rose-600"
+                                            >
+                                                <HiOutlineX />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Shift Editor Panel */}
+                            {isManagingSlots && (
+                                <form onSubmit={handleAddSlot} className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 md:grid-cols-4 gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Shift Name (e.g. Morning 1)" 
+                                        value={newSlot.label} 
+                                        onChange={(e) => setNewSlot({ ...newSlot, label: e.target.value })} 
+                                        className="p-2 rounded-lg bg-white/10 text-white text-xs border border-white/10 outline-none" 
+                                    />
+                                    <input 
+                                        type="time" 
+                                        value={newSlot.start} 
+                                        onChange={(e) => setNewSlot({ ...newSlot, start: e.target.value })} 
+                                        className="p-2 rounded-lg bg-white/10 text-white text-xs border border-white/10 outline-none" 
+                                    />
+                                    <input 
+                                        type="time" 
+                                        value={newSlot.end} 
+                                        onChange={(e) => setNewSlot({ ...newSlot, end: e.target.value })} 
+                                        className="p-2 rounded-lg bg-white/10 text-white text-xs border border-white/10 outline-none" 
+                                    />
+                                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg py-2">
+                                        Add Shift Slot
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+
                         <form onSubmit={handleAddScheduleItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
                             <select 
                                 value={newScheduleItem.subject} 
