@@ -1,152 +1,268 @@
-"use client"
-import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
-import { db } from '../../../firebase/config'; 
-import { doc, onSnapshot } from 'firebase/firestore';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import Image from 'next/image'; // Next.js Image for millisecond loading
-import { 
-  Target, Rocket, ShieldCheck, ChevronDown, 
-  CheckCircle2 
-} from 'lucide-react';
+"use client";
 
-export default function MissionPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { db } from "../../../firebase/config";
+import { doc, onSnapshot } from "firebase/firestore";
+import Image from "next/image";
+import { Target, Rocket, ShieldCheck, CheckCircle2 } from "lucide-react";
 
-  // Optimization 1: Memoize static data so it doesn't recalculate on scroll/renders
-  const coreValues = useMemo(() => [
-    {
-      title: "Intellectual Growth",
-      desc: "Cultivating a thirst for knowledge that goes beyond textbooks and examinations.",
-      icon: Target,
-      color: "bg-blue-50 text-blue-600"
-    },
-    {
-      title: "Ethical Integrity",
-      desc: "Instilling values of honesty, respect, and responsibility in every student.",
-      icon: ShieldCheck,
-      color: "bg-emerald-50 text-emerald-600"
-    },
-    {
-      title: "Global Citizenship",
-      desc: "Preparing students to lead and serve in an increasingly interconnected world.",
-      icon: Rocket,
-      color: "bg-purple-50 text-purple-600"
-    }
-  ], []);
+// IntersectionObserver hook for lightweight scroll reveal
+function useReveal() {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "site_data", "config"), (docSnap) => {
-      if (docSnap.exists()) {
-        setData(docSnap.data());
-      }
-      setLoading(false);
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
 
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    // Passive scroll listener for better performance
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      unsub();
-      window.removeEventListener('scroll', handleScroll);
-    };
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
   }, []);
 
-  if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-white">
-      <div className="w-12 h-12 border-4 border-[#6366F1] border-t-transparent rounded-full animate-spin"></div>
-    </div>
+  return [ref, isVisible];
+}
+
+// Default Fallback Data to prevent blank screens during loading/network issues
+const DEFAULT_MISSION_DATA = {
+  eyebrow: "Our Purpose",
+  title: "The Mission",
+  subtitle: "Empowering every student to reach higher and dream bigger.",
+  description:
+    "Our mission is to provide a nurturing and innovative learning environment that fosters academic excellence, creative expression, and strong moral character.",
+  highlights: [
+    "Innovation in Learning",
+    "Character Development",
+    "Community Leadership",
+  ],
+  statsValue: "100%",
+  statsLabel: "Commitment to Success",
+};
+
+export default function MissionPage() {
+  const [data, setData] = useState(DEFAULT_MISSION_DATA);
+
+  // Animation Refs
+  const [heroRef, heroVisible] = useReveal();
+  const [missionRef, missionVisible] = useReveal();
+  const [valuesRef, valuesVisible] = useReveal();
+
+  const coreValues = useMemo(
+    () => [
+      {
+        title: "Intellectual Growth",
+        desc: "Cultivating a thirst for knowledge that goes beyond textbooks and examinations.",
+        icon: Target,
+      },
+      {
+        title: "Ethical Integrity",
+        desc: "Instilling values of honesty, respect, and responsibility in every student.",
+        icon: ShieldCheck,
+      },
+      {
+        title: "Global Citizenship",
+        desc: "Preparing students to lead and serve in an increasingly interconnected world.",
+        icon: Rocket,
+      },
+    ],
+    []
   );
 
+  useEffect(() => {
+    let unsub = () => {};
+
+    try {
+      if (db) {
+        unsub = onSnapshot(
+          doc(db, "site_data", "config"),
+          (docSnap) => {
+            if (docSnap.exists() && docSnap.data()?.mission) {
+              setData((prev) => ({ ...prev, ...docSnap.data().mission }));
+            }
+          },
+          (error) => {
+            console.warn("Firestore listener error, using static fallback:", error);
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("Firebase initialization error, using static fallback:", e);
+    }
+
+    return () => unsub();
+  }, []);
+
   return (
-    <div className="bg-[#FDFBF9] text-slate-900 antialiased overflow-x-hidden font-sans">
-      
-      {/* --- 2. MISSION HERO --- */}
-      <section className="relative min-h-[60vh] flex items-center bg-slate-950 pt-20">
-        <div className="absolute inset-0 opacity-40">
-           {/* Optimization 2: Added priority and fill for instant Hero display */}
-           <Image 
-              src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=2070" 
-              alt="Mission" 
-              fill
-              priority
-              className="object-cover"
-           />
-           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/50 to-slate-950" />
+    <div className="bg-[#FAF8F4] text-[#52607A] font-sans antialiased selection:bg-[#B8892B] selection:text-white overflow-x-hidden">
+      {/* 1. HERO SECTION */}
+      <section
+        ref={heroRef}
+        className="relative min-h-[55vh] md:min-h-[60vh] flex items-center justify-center bg-[#142440] overflow-hidden px-6 py-20 md:py-28"
+      >
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=2070"
+            alt="Mission Background"
+            fill
+            priority
+            className="object-cover opacity-20 filter contrast-125 brightness-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#142440] via-[#142440]/60 to-transparent" />
         </div>
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="text-[#6366F1] font-black tracking-[0.4em] uppercase text-xs mb-6 block">Our Purpose</span>
-            <h1 className="text-6xl md:text-8xl font-black uppercase text-white tracking-tighter leading-none mb-8">
-              The <span className="italic text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Mission</span>
-            </h1>
-          </motion.div>
+
+        <div
+          className={`relative z-10 max-w-7xl mx-auto w-full text-center transition-all duration-700 ease-out ${
+            heroVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
+          {/* Eyebrow */}
+          <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#E9DCBD] block mb-4">
+            {data.eyebrow}
+          </span>
+
+          {/* Serif Headline */}
+          <h1 className="font-serif italic text-5xl md:text-7xl lg:text-8xl text-white font-normal tracking-tight">
+            The <span className="text-[#E9DCBD]">Mission</span>
+          </h1>
         </div>
       </section>
 
-      {/* --- 3. MISSION STATEMENT --- */}
-      <section className="py-32 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <div>
-              <div className="w-20 h-2 bg-[#6366F1] mb-10" />
-              <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-tight mb-8">
-                Empowering every student to <span className="text-[#6366F1]">reach higher</span> and dream bigger.
+      {/* 2. MISSION STATEMENT */}
+      <section
+        ref={missionRef}
+        className="py-20 md:py-28 max-w-7xl mx-auto px-6 md:px-10"
+      >
+        <div
+          className={`grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center transition-all duration-700 ease-out ${
+            missionVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
+          {/* Left Column: Mission Narrative */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* 3-Tier Opening Sequence */}
+            <div className="space-y-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#B8892B] block">
+                Core Directive
+              </span>
+              <h2 className="font-serif text-3xl md:text-5xl text-[#142440] leading-tight font-normal">
+                Empowering every student to{" "}
+                <span className="italic">reach higher</span> and dream bigger.
               </h2>
-              <p className="text-xl text-slate-500 font-medium leading-relaxed mb-8">
-                Our mission is to provide a nurturing and innovative learning environment that fosters academic excellence, creative expression, and strong moral character.
-              </p>
-              <ul className="space-y-4">
-                {['Innovation in Learning', 'Character Development', 'Community Leadership'].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 font-black uppercase tracking-widest text-xs text-slate-700">
-                    <CheckCircle2 size={18} className="text-[#6366F1]" /> {item}
-                  </li>
-                ))}
-              </ul>
             </div>
-            <div className="relative">
-              <div className="relative aspect-[5/5] bg-slate-100 rounded-[3rem] overflow-hidden shadow-2xl">
-                {/* Optimization 3: WebP delivery through Next/Image */}
-                <Image 
-                  src="https://res.cloudinary.com/db6ssceun/image/upload/v1766151252/lywz5x0c1sqx5dmsxs0c.jpg" 
-                  alt="Student Life" 
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="absolute -bottom-10 -left-10 bg-white p-12 rounded-[2.5rem] shadow-xl hidden md:block border border-slate-50">
-                <div className="text-4xl font-black text-[#6366F1]">100%</div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Commitment to Success</div>
-              </div>
+
+            <p className="font-sans text-base md:text-lg text-[#52607A] leading-relaxed border-t border-[#E4DFD3] pt-6">
+              {data.description}
+            </p>
+
+            {/* List System with Icon-in-a-Ring */}
+            <ul className="space-y-4 pt-2">
+              {data.highlights.map((item, i) => (
+                <li key={i} className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full border border-[#E4DFD3] flex items-center justify-center text-[#B8892B] bg-white shrink-0">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#142440] font-semibold">
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right Column: Imagery with Embedded Stat Card */}
+          <div className="lg:col-span-5 relative">
+            <div className="relative aspect-square bg-[#F1ECE1] rounded-[24px] overflow-hidden border border-[#E4DFD3]">
+              <Image
+                src="https://res.cloudinary.com/db6ssceun/image/upload/v1766151252/lywz5x0c1sqx5dmsxs0c.jpg"
+                alt="Student Life"
+                fill
+                sizes="(max-width: 1024px) 100vw, 40vw"
+                className="object-cover"
+              />
+            </div>
+
+            {/* Stat Overlay Badge */}
+            <div className="mt-4 md:mt-0 md:absolute md:-bottom-8 md:-left-8 bg-white p-6 md:p-8 rounded-[20px] border border-[#E4DFD3] max-w-xs shadow-sm">
+              <span className="font-serif italic text-4xl md:text-5xl text-[#142440] block mb-1">
+                {data.statsValue}
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#52607A] block">
+                {data.statsLabel}
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* --- 4. CORE VALUES --- */}
-      <section className="py-32 bg-slate-900 rounded-[4rem] mx-4 mb-12 md:mx-10 overflow-hidden text-white">
-        <div className="max-w-7xl mx-auto px-6 text-center mb-20">
-          <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter mb-4">Core <span className="text-[#6366F1]">Values</span></h2>
-          <p className="text-slate-400 font-medium">The pillars that hold our institution together.</p>
-        </div>
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
-          {coreValues.map((value, i) => (
-            <motion.div 
-              key={i}
-              whileHover={{ y: -10 }}
-              className="p-10 bg-white/5 border border-white/10 rounded-[2.5rem] backdrop-blur-sm"
-            >
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 ${value.color}`}>
-                <value.icon size={30} />
-              </div>
-              <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-4">{value.title}</h3>
-              <p className="text-slate-400 font-medium leading-relaxed">{value.desc}</p>
-            </motion.div>
-          ))}
+      {/* 3. CORE VALUES SECTION */}
+      <section
+        ref={valuesRef}
+        className="py-20 md:py-28 bg-[#142440] text-white my-12"
+      >
+        <div className="max-w-7xl mx-auto px-6 md:px-10">
+          <div
+            className={`text-center max-w-2xl mx-auto mb-16 transition-all duration-700 ease-out ${
+              valuesVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+            }`}
+          >
+            <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#E9DCBD] block mb-3">
+              Guiding Principles
+            </span>
+            <h2 className="font-serif italic text-4xl md:text-6xl font-normal text-white mb-4">
+              Core <span className="text-[#E9DCBD]">Values</span>
+            </h2>
+            <p className="font-sans text-base text-[#FAF8F4]/80">
+              The foundational pillars that guide our institutional culture.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {coreValues.map((value, i) => {
+              const IconComponent = value.icon;
+              return (
+                <div
+                  key={i}
+                  className={`bg-[#142440] border border-[#E4DFD3]/20 rounded-[24px] p-8 md:p-10 transition-all duration-500 ease-out hover:border-[#B8892B]/50 ${
+                    valuesVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-8"
+                  }`}
+                  style={{
+                    transitionDelay: valuesVisible ? `${i * 100}ms` : "0ms",
+                  }}
+                >
+                  {/* Icon-in-a-Ring Motif */}
+                  <div className="w-12 h-12 rounded-full border border-[#E4DFD3]/30 flex items-center justify-center text-[#E9DCBD] bg-white/5 mb-8">
+                    <IconComponent size={22} />
+                  </div>
+
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#E9DCBD] block mb-2">
+                    0{i + 1}
+                  </span>
+
+                  <h3 className="font-serif text-2xl text-white font-normal mb-4">
+                    {value.title}
+                  </h3>
+
+                  <p className="font-sans text-sm text-[#FAF8F4]/70 leading-relaxed">
+                    {value.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
     </div>

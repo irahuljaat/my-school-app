@@ -1,99 +1,195 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { db } from '../../firebase/config';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { motion } from 'framer-motion';
-import {
-  Target, Eye, ShieldCheck, Phone, Mail, Menu, X, 
-  ChevronDown, Instagram, Facebook, MapPin, ArrowRight, Quote, Globe, Lightbulb, Microscope
-} from 'lucide-react';
-import Image from 'next/image'; // Optimized Next.js Image component
+import React, { useEffect, useState, useRef } from "react";
+import { db } from "../../firebase/config";
+import { doc, onSnapshot } from "firebase/firestore";
+import { MapPin, Phone } from "lucide-react";
+import Image from "next/image";
 
-// 1. Define Default Data outside the component to prevent re-renders
+// Custom hook to trigger scroll reveal animations without heavy libraries
+function useReveal() {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, isVisible];
+}
+
 const DEFAULT_DATA = {
   stats: [
     { label: "Years of Legacy", value: "30+" },
     { label: "Quality Faculty", value: "25+" },
     { label: "Global Alumni", value: "2200+" },
-    { label: "Result Record", value: "100%" }
+    { label: "Result Record", value: "100%" },
   ],
   principal: {
     name: "Dr. S. K. Sharma",
-    quote: "At MVG Academy, we nurture brilliance and character through a balanced approach to modern education.",
-    image: "https://images.unsplash.com/photo-1544717297-fa154da09f9d?q=80&w=2070"
-  }
+    quote:
+      "At MVG Academy, we nurture brilliance and character through a balanced approach to modern education.",
+    image:
+      "https://images.unsplash.com/photo-1544717297-fa154da09f9d?q=80&w=2070",
+  },
 };
 
 export default function AboutPage() {
-  // Use DEFAULT_DATA as initial state so the page renders instantly
   const [data, setData] = useState(DEFAULT_DATA);
-  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Scroll reveal references
+  const [heroRef, heroVisible] = useReveal();
+  const [identityRef, identityVisible] = useReveal();
 
   useEffect(() => {
-    // Background listener - UI stays visible while this fetches
     const unsub = onSnapshot(doc(db, "site_data", "config"), (docSnap) => {
       if (docSnap.exists()) {
-        setData(docSnap.data());
+        setData((prev) => ({ ...prev, ...docSnap.data() }));
       }
     });
 
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll, { passive: true }); // Improved scroll performance
-    
-    return () => { 
-      unsub(); 
-      window.removeEventListener('scroll', handleScroll); 
-    };
+    return () => unsub();
   }, []);
 
   return (
-    <div className="bg-white text-slate-900 antialiased font-sans">
-      
-      {/* 2. HERO SECTION - Use Priority Loading */}
-      <section className="relative h-[70vh] flex items-center justify-center bg-slate-900 overflow-hidden">
+    <div className="bg-[#FAF8F4] text-[#52607A] font-sans antialiased selection:bg-[#B8892B] selection:text-white">
+      {/* 1. HERO SECTION */}
+      <section
+        ref={heroRef}
+        className="relative min-h-[70vh] flex items-center justify-center bg-[#142440] overflow-hidden px-6 py-20 md:py-28"
+      >
         <div className="absolute inset-0">
-          <Image 
-            src="https://res.cloudinary.com/db6ssceun/image/upload/v1766151247/ksc9iyuyyj7k0kibdsum.jpg" 
-            alt="Hero"
+          <Image
+            src="https://res.cloudinary.com/db6ssceun/image/upload/v1766151247/ksc9iyuyyj7k0kibdsum.jpg"
+            alt="MVG Academy Campus"
             fill
-            priority // Forces this image to load immediately with the HTML
-            className="object-cover opacity-40"
+            priority
+            className="object-cover opacity-20 filter contrast-125 brightness-90"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-white" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#142440] via-[#142440]/60 to-transparent" />
         </div>
-        <motion.h1 
-          initial={{ y: 30, opacity: 0 }} 
-          animate={{ y: 0, opacity: 1 }} 
-          className="relative z-10 text-6xl md:text-9xl font-black text-white uppercase italic tracking-tighter"
+
+        <div
+          className={`relative z-10 max-w-7xl mx-auto text-center transition-all duration-700 ease-out ${
+            heroVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
         >
-          OUR <span className="text-blue-600">STORY.</span>
-        </motion.h1>
+          {/* Eyebrow */}
+          <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#E9DCBD] block mb-4">
+            Established 1994
+          </span>
+
+          {/* Serif Headline */}
+          <h1 className="font-serif italic text-5xl md:text-7xl lg:text-8xl text-white font-normal tracking-tight mb-6">
+            Our <span className="text-[#E9DCBD]">Story</span>
+          </h1>
+
+          <p className="font-sans text-base md:text-lg text-[#FAF8F4]/80 max-w-2xl mx-auto leading-relaxed">
+            Nurturing academic mastery and human integrity across three decades.
+          </p>
+        </div>
       </section>
 
-      {/* 3. CORE IDENTITY */}
-      <section className="py-32 max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
-          <div className="space-y-8">
-            <span className="text-blue-600 font-black tracking-[0.4em] uppercase text-[10px] block">Institutional Profile</span>
-            <h2 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
-              Where Tradition <br /> <span className="text-blue-600">Meets Innovation.</span>
-            </h2>
-            <p className="text-slate-600 text-lg font-medium italic leading-relaxed">
-              Established in 1994, MVG Public School has grown from a visionary local school into a powerhouse of academic and athletic excellence in Rajasthan.
+      {/* 2. CORE IDENTITY SECTION */}
+      <section
+        ref={identityRef}
+        className="py-20 md:py-28 max-w-7xl mx-auto px-6 md:px-10"
+      >
+        <div
+          className={`grid lg:grid-cols-12 gap-12 lg:gap-16 items-start transition-all duration-700 ease-out ${
+            identityVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
+          {/* Left Column: Narrative */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* 3-Tier Opening Sequence */}
+            <div className="space-y-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#B8892B] block">
+                Institutional Profile
+              </span>
+              <h2 className="font-serif text-3xl md:text-5xl text-[#142440] leading-tight font-normal">
+                Where Tradition Meets <span className="italic">Innovation.</span>
+              </h2>
+            </div>
+
+            <p className="font-sans text-base md:text-lg text-[#52607A] leading-relaxed">
+              Established in 1994, MVG Public School has grown from a visionary
+              local institution into a cornerstone of academic rigor and character
+              formation in Rajasthan.
             </p>
-            <div className="grid grid-cols-2 gap-8 py-8 border-y border-slate-100">
-              <div className="flex gap-4"><MapPin className="text-blue-600" size={20}/><p className="text-xs font-bold">Jaipur, India 302033</p></div>
-              <div className="flex gap-4"><Phone className="text-blue-600" size={20}/><p className="text-xs font-bold">+91 9829018332</p></div>
+
+            {/* Icon-in-a-Ring Contact Details */}
+            <div className="pt-6 grid sm:grid-cols-2 gap-6 border-t border-[#E4DFD3]">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-full border border-[#E4DFD3] flex items-center justify-center shrink-0 text-[#B8892B] bg-white">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#52607A] block">
+                    Location
+                  </span>
+                  <p className="font-sans text-sm font-semibold text-[#142440]">
+                    Jaipur, India 302033
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-full border border-[#E4DFD3] flex items-center justify-center shrink-0 text-[#B8892B] bg-white">
+                  <Phone size={18} />
+                </div>
+                <div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#52607A] block">
+                    Contact
+                  </span>
+                  <p className="font-sans text-sm font-semibold text-[#142440]">
+                    +91 9829018332
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            {data.stats.map((stat, i) => (
-              <div key={i} className={`p-10 rounded-[3rem] ${i % 2 === 0 ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
-                <h3 className="text-5xl font-black italic mb-2">{stat.value}</h3>
-                <p className="uppercase tracking-widest text-[10px] font-bold opacity-80">{stat.label}</p>
-              </div>
-            ))}
+
+          {/* Right Column: Ledger Stat Row Card */}
+          <div className="lg:col-span-5 bg-[#F1ECE1] border border-[#E4DFD3] rounded-[24px] p-8 md:p-10">
+            <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#B8892B] block mb-8">
+              At A Glance
+            </span>
+
+            {/* Ledger Stat Layout */}
+            <div className="divide-y divide-[#E4DFD3]">
+              {data.stats.map((stat, i) => (
+                <div
+                  key={i}
+                  className="py-5 first:pt-0 last:pb-0 flex items-baseline justify-between gap-4 transition-all duration-500 ease-out"
+                  style={{
+                    transitionDelay: identityVisible ? `${i * 90}ms` : "0ms",
+                  }}
+                >
+                  <span className="font-serif italic text-4xl md:text-5xl text-[#142440]">
+                    {stat.value}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#52607A] text-right">
+                    {stat.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

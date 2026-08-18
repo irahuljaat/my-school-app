@@ -7,7 +7,6 @@ import {
     HiOutlineCalendar, 
     HiOutlineCurrencyRupee,
     HiOutlineArrowLeft,
-    HiOutlineDatabase,
     HiOutlineSearch,
     HiOutlineHome
 } from 'react-icons/hi';
@@ -28,7 +27,7 @@ const VIEWS = {
     ATTENDANCE: 'ATTENDANCE',
     SALARY: 'SALARY',
     VIEW_PRINT: 'VIEW_PRINT', 
-    EDIT: 'EDIT',           
+    EDIT: 'EDIT',              
 };
 
 export default function TeacherManagePage() {
@@ -145,13 +144,13 @@ export default function TeacherManagePage() {
                 </div>
 
                 {/* Main Content Glass Container */}
-                <div className="bg-white/40 backdrop-blur-[40px] rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white/70 overflow-hidden min-h-[750px] relative">
+                <div className="bg-white/40 backdrop-blur-[40px] rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white/70 overflow-hidden relative p-8 lg:p-12">
                     
                     {/* Inner Header Glow */}
                     <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-indigo-50/30 to-transparent pointer-events-none" />
 
                     {currentView === VIEWS.LIST && (
-                        <div className="relative z-10 p-10 pb-0 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="relative z-10 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
                             <div className="flex items-center gap-4">
                                 <div className="w-14 h-14 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
                                     <HiOutlineUsers size={28} />
@@ -168,13 +167,13 @@ export default function TeacherManagePage() {
                                 <input 
                                     type="text" 
                                     placeholder="Search Directory..."
-                                    className="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-[1.5rem] py-4 pl-14 pr-6 text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-8 focus:ring-indigo-500/5 transition-all outline-none"
+                                    className="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-[1.5rem] py-4 pl-14 pr-6 text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-8 focus:ring-indigo-500/5 transition-all outline-none shadow-sm"
                                 />
                             </div>
                         </div>
                     )}
                     
-                    <div className={`relative z-10 ${isInternalView ? '' : 'p-10 pt-8'}`}>
+                    <div className="relative z-10">
                         {renderContent()}
                     </div>
                 </div>

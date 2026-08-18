@@ -12,7 +12,8 @@ import {
     HiOutlineCalendar,
     HiSelector
 } from 'react-icons/hi'; 
-import MarksheetTemplate from './MarksheetTemplate';
+import MarksheetTemplateSimple from './MarksheetTemplateSimple';
+import MarksheetTemplateModern from './MarksheetTemplateModern';
 
 function MarksheetGenerator({ onBack }) {
     const [exams, setExams] = useState([]);
@@ -24,6 +25,7 @@ function MarksheetGenerator({ onBack }) {
     const [loading, setLoading] = useState(false);
     const [activeSession, setActiveSession] = useState('');
     const [resultDate, setResultDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedTemplate, setSelectedTemplate] = useState('modern'); // 'modern' or 'classic'
 
     useEffect(() => {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (docSnap) => {
@@ -54,90 +56,82 @@ function MarksheetGenerator({ onBack }) {
         });
     };
 
-                            const fetchData = async () => {
-                if (!selectedClass || selectedExams.length === 0 || !activeSession) return;
-                setLoading(true);
-                setGeneratedData([]); // Clear previous data
-                setSelectedStudentIds([]);
+    const fetchData = async () => {
+        if (!selectedClass || selectedExams.length === 0 || !activeSession) return;
+        setLoading(true);
+        setGeneratedData([]); 
+        setSelectedStudentIds([]);
 
-                try {
-                    // 1. Fetch Students
-                    let sSnap = await getDocs(query(collection(db, 'sessions', activeSession, 'students'), where('grade', '==', selectedClass)));
-                    if (sSnap.empty) {
-                        sSnap = await getDocs(query(collection(db, 'students'), where('grade', '==', selectedClass)));
-                    }
-                    
-                    // 2. Fetch Exam Configurations (Marks and Assignments)
-                    const examData = await Promise.all(selectedExams.map(async (examId) => {
-                        const docId = `${examId}_${selectedClass}`;
-                        const mSnap = await getDoc(doc(db, 'sessions', activeSession, 'examMarks', docId));
-                        const aSnap = await getDoc(doc(db, 'sessions', activeSession, 'examAssignments', docId));
+        try {
+            let sSnap = await getDocs(query(collection(db, 'sessions', activeSession, 'students'), where('grade', '==', selectedClass)));
+            if (sSnap.empty) {
+                sSnap = await getDocs(query(collection(db, 'students'), where('grade', '==', selectedClass)));
+            }
+            
+            const examData = await Promise.all(selectedExams.map(async (examId) => {
+                const docId = `${examId}_${selectedClass}`;
+                const mSnap = await getDoc(doc(db, 'sessions', activeSession, 'examMarks', docId));
+                const aSnap = await getDoc(doc(db, 'sessions', activeSession, 'examAssignments', docId));
+                
+                return {
+                    examId, 
+                    examName: exams.find(e => e.id === examId)?.name || "Exam",
+                    marks: mSnap.data()?.marks || {}, 
+                    subjects: aSnap.data()?.subjects || []
+                };
+            }));
+
+            const results = sSnap.docs.map((sd) => {
+                const s = sd.data();
+                const sId = sd.id;
+                
+                const filteredExams = examData.map(ex => {
+                    let validSubs = ex.subjects.filter(sub => {
+                        const subName = sub.name.trim().toLowerCase();
                         
-                        return {
-                            examId, 
-                            examName: exams.find(e => e.id === examId)?.name || "Exam",
-                            marks: mSnap.data()?.marks || {}, 
-                            subjects: aSnap.data()?.subjects || []
-                        };
-                    }));
+                        if (!['11', '12'].includes(selectedClass)) return true;
 
-                    const results = sSnap.docs.map((sd) => {
-                        const s = sd.data();
-                        const sId = sd.id;
+                        const mandatory = ['hindi', 'english', 'gk', 'g.k', 'computer', 'drawing', 'art'];
+                        if (mandatory.some(m => subName.includes(m))) return true;
+
+                        const rawStudentSubs = s.subjects || [];
+                        const subjectsArray = Array.isArray(rawStudentSubs) ? rawStudentSubs : [];
                         
-                        const filteredExams = examData.map(ex => {
-                            // Logic to determine which subjects to show
-                            let validSubs = ex.subjects.filter(sub => {
-                                const subName = sub.name.trim().toLowerCase();
-                                
-                                // Always show for Lower Classes
-                                if (!['11', '12'].includes(selectedClass)) return true;
-
-                                // Always show mandatory subjects for 11/12
-                                const mandatory = ['hindi', 'english', 'gk', 'g.k', 'computer', 'drawing', 'art'];
-                                if (mandatory.some(m => subName.includes(m))) return true;
-
-                                // Check student's specific assigned subjects
-                                const rawStudentSubs = s.subjects || [];
-                                const subjectsArray = Array.isArray(rawStudentSubs) ? rawStudentSubs : [];
-                                
-                                return subjectsArray.some(studentSub => {
-                                    const studentSubName = (typeof studentSub === 'string' 
-                                        ? studentSub 
-                                        : studentSub?.name || ''
-                                    ).trim().toLowerCase();
-                                    return subName.includes(studentSubName) || studentSubName.includes(subName);
-                                });
-                            });
-
-                            // FALLBACK: If Class 11/12 student has NO matching subjects, 
-                            // show ALL assigned subjects so the table isn't empty.
-                            if (validSubs.length === 0 && ex.subjects.length > 0) {
-                                validSubs = ex.subjects;
-                            }
-
-                            return { ...ex, subjects: validSubs };
+                        return subjectsArray.some(studentSub => {
+                            const studentSubName = (typeof studentSub === 'string' 
+                                ? studentSub 
+                                : studentSub?.name || ''
+                            ).trim().toLowerCase();
+                            return subName.includes(studentSubName) || studentSubName.includes(subName);
                         });
-
-                        return {
-                            student: { 
-                                ...s, 
-                                id: sId, 
-                                dob: s.dob ? s.dob.split('-').reverse().join('-') : '—',
-                            },
-                            examResults: filteredExams
-                        };
                     });
 
-                    results.sort((a, b) => (a.student.name || "").localeCompare(b.student.name || ""));
-                    setGeneratedData(results);
-                    setSelectedStudentIds(results.map(r => r.student.id)); 
-                } catch (e) { 
-                    console.error("Fetch Error:", e); 
-                } finally { 
-                    setLoading(false); 
-                }
-            };      
+                    if (validSubs.length === 0 && ex.subjects.length > 0) {
+                        validSubs = ex.subjects;
+                    }
+
+                    return { ...ex, subjects: validSubs };
+                });
+
+                return {
+                    student: { 
+                        ...s, 
+                        id: sId, 
+                        dob: s.dob ? s.dob.split('-').reverse().join('-') : '—',
+                    },
+                    examResults: filteredExams
+                };
+            });
+
+            results.sort((a, b) => (a.student.name || "").localeCompare(b.student.name || ""));
+            setGeneratedData(results);
+            setSelectedStudentIds(results.map(r => r.student.id)); 
+        } catch (e) { 
+            console.error("Fetch Error:", e); 
+        } finally { 
+            setLoading(false); 
+        }
+    };      
 
     const toggleStudent = (id) => {
         setSelectedStudentIds(prev => 
@@ -156,8 +150,22 @@ function MarksheetGenerator({ onBack }) {
                     <button onClick={onBack} className="text-indigo-600 font-bold uppercase text-[10px] tracking-widest flex items-center gap-2">
                         <HiOutlineChevronLeft/> Back
                     </button>
-                    <div className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm">
-                        Session {activeSession || '...'}
+                    <div className="flex items-center gap-3">
+                        {/* Template Switcher Dropdown */}
+                        <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Layout:</span>
+                            <select 
+                                value={selectedTemplate} 
+                                onChange={(e) => setSelectedTemplate(e.target.value)}
+                                className="bg-transparent text-slate-800 text-[10px] font-extrabold uppercase outline-none cursor-pointer"
+                            >
+                                <option value="modern">Modern Minimal Template</option>
+                                <option value="classic">Classic Formal Template</option>
+                            </select>
+                        </div>
+                        <div className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm">
+                            Session {activeSession || '...'}
+                        </div>
                     </div>
                 </div>
 
@@ -235,12 +243,21 @@ function MarksheetGenerator({ onBack }) {
             <div id="print-area">
                 {printData.map((data, idx) => (
                     <div key={idx} className="marksheet-page-wrapper">
-                        <MarksheetTemplate 
-                            student={data.student} 
-                            examResults={data.examResults} 
-                            activeSession={activeSession} 
-                            resultDate={resultDate}
-                        />
+                        {selectedTemplate === 'classic' ? (
+                            <MarksheetTemplateSimple
+                                student={data.student} 
+                                examResults={data.examResults} 
+                                activeSession={activeSession} 
+                                resultDate={resultDate}
+                            />
+                        ) : (
+                            <MarksheetTemplateModern 
+                                student={data.student} 
+                                examResults={data.examResults} 
+                                activeSession={activeSession} 
+                                resultDate={resultDate}
+                            />
+                        )}
                     </div>
                 ))}
             </div>

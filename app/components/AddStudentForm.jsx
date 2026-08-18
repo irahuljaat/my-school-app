@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import BulkAdmissionManager from './BulkAdmissionManager'; 
 import { 
     HiOutlineUserAdd, 
@@ -9,7 +9,12 @@ import {
     HiOutlineAcademicCap, 
     HiOutlineX,
     HiOutlineLightningBolt,
-    HiOutlineCheckCircle
+    HiOutlineCheckCircle,
+    HiOutlineIdentification,
+    HiOutlineCalendar,
+    HiOutlineUser,
+    HiOutlinePhone,
+    HiOutlineLocationMarker
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
@@ -18,22 +23,23 @@ const STREAMS_DATA = {
     "Science (Medical)": ["Physics", "Chemistry", "Biology"],
     "Science (Non-Medical)": ["Physics", "Chemistry", "Mathematics"],
     "Commerce": ["Accountancy", "Business Studies", "Economics"], 
-    "Arts": ["History", "Geography", "Pol. Science"]     
+    "Arts": ["History", "Geography", "Pol. Science"]    
 };
 
 const RELIGIONS = ["Hindu", "Muslim", "Sikh", "Christian", "Other"];
-const CLASSES = ["LKG" , "UKG" , "PREP" , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const CLASSES = ["LKG", "UKG", "PREP", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const SECTIONS = ["A", "B", "C", "D"];
 const GENDERS = ["Male", "Female", "Other"];
 const CASTE_CATEGORIES = ["General", "OBC", "SC", "ST", "SBC", "Other"];
 
-// Memoized content for performance
 const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession }) => {
     const [formData, setFormData] = useState({ 
         srNo: '',  
-        rollNumber: '', // Added rollNumber state
+        rollNumber: '', 
         admissionDate: new Date().toISOString().split('T')[0],
         name: '', 
         grade: '', 
+        section: '', 
         dob: '', 
         gender: '',
         caste: '', 
@@ -67,7 +73,7 @@ const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession 
                 optSubject3: subjects[2] || ''
             }));
         }
-    }, [formData.stream, formData.grade, isHighSchool]);
+    }, [formData.stream, isHighSchool]);
 
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
@@ -84,20 +90,21 @@ const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession 
                     canvas.height = img.height * scaleSize;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    setFormData(prev => ({ ...prev, imageUrl: canvas.toDataURL('image/jpeg', 0.5) }));
+                    setFormData(prev => ({ ...prev, imageUrl: canvas.toDataURL('image/jpeg', 0.7) }));
                 };
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const handleChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
 
-    const toggleStatus = (field, val) => {
+    const toggleStatus = useCallback((field, val) => {
         setFormData(prev => ({ ...prev, [field]: val }));
-    };
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -106,24 +113,25 @@ const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession 
 
         try {
             const timestamp = Date.now();
-            const generatedId = `S${formData.srNo}_${formData.grade}_${timestamp}`;
+            const generatedId = `S${formData.srNo}_${formData.grade}_${formData.section || 'NA'}_${timestamp}`;
 
             const studentData = {
                 id: generatedId,
-                srNo: parseInt(formData.srNo),
-                rollNumber: formData.rollNumber, // Saving rollNumber to Firestore
+                srNo: parseInt(formData.srNo, 10),
+                rollNumber: formData.rollNumber.trim(), 
                 admissionDate: formData.admissionDate,
-                name: formData.name,
+                name: formData.name.trim(),
                 grade: String(formData.grade), 
+                section: String(formData.section || '').toUpperCase(), 
                 dob: formData.dob,
                 gender: formData.gender,
                 caste: formData.caste,
-                aadhaarNumber: formData.aadhaarNumber,
+                aadhaarNumber: formData.aadhaarNumber.trim(),
                 religion: formData.religion,
-                fatherName: formData.fatherName,
-                motherName: formData.motherName,
-                contact: formData.contact,
-                address: formData.address,
+                fatherName: formData.fatherName.trim(),
+                motherName: formData.motherName.trim(),
+                contact: formData.contact.trim(),
+                address: formData.address.trim(),
                 imageUrl: formData.imageUrl,
                 isDummy: formData.isDummy,
                 isRte: formData.isRte,
@@ -150,112 +158,204 @@ const SingleStudentFormContent = memo(({ onClose, onStudentAdded, activeSession 
     };
 
     return (
-        <div className="p-8 space-y-6">
+        <div className="p-6 md:p-8 space-y-8 bg-slate-50/50">
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <div className="md:col-span-1 flex flex-col items-center space-y-4">
-                        <div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
-                            {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Student" /> : <HiOutlinePhotograph className="w-10 h-10 text-slate-300" />}
+                
+                {/* Top Section: Photo & Basic Metadata */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+                    <div className="flex flex-col items-center space-y-3">
+                        <div className="w-28 h-28 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group hover:border-[#9853eb] transition-all shadow-inner">
+                            {formData.imageUrl ? (
+                                <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Student" />
+                            ) : (
+                                <div className="flex flex-col items-center text-slate-400 group-hover:text-[#9853eb] transition-colors">
+                                    <HiOutlinePhotograph className="w-8 h-8 mb-1" />
+                                    <span className="text-[9px] font-bold uppercase tracking-wider">Upload Photo</span>
+                                </div>
+                            )}
                             <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                        </div>
-                        
-                        <div className="w-full space-y-2">
-                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                                <label className="text-[8px] font-black text-slate-400 uppercase text-center block mb-1">Entry Type</label>
-                                <div className="grid grid-cols-2 gap-1">
-                                    <button type="button" onClick={() => toggleStatus('isDummy', false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isDummy ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Regular</button>
-                                    <button type="button" onClick={() => toggleStatus('isDummy', true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineLightningBolt className="w-3 h-3" /> Dummy</button>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                                <label className="text-[8px] font-black text-slate-400 uppercase text-center block mb-1">RTE Admission</label>
-                                <div className="grid grid-cols-2 gap-1">
-                                    <button type="button" onClick={() => toggleStatus('isRte', false)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${!formData.isRte ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-400'}`}>No</button>
-                                    <button type="button" onClick={() => toggleStatus('isRte', true)} className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 ${formData.isRte ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400'}`}><HiOutlineCheckCircle className="w-3 h-3" /> Yes (RTE)</button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
                     <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input name="name" placeholder="Full Name" required className="md:col-span-2 p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold focus:ring-2 focus:ring-indigo-500 transition-all" onChange={handleChange} value={formData.name} />
-                        <div className="flex flex-col gap-1">
-                             <label className="text-[10px] font-bold text-slate-400 ml-2">Admission Date</label>
-                             <input name="admissionDate" type="date" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.admissionDate} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1">
-                                 <label className="text-[10px] font-bold text-slate-400 ml-2">SR No.</label>
-                                 <input name="srNo" type="number" placeholder="SR No." required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.srNo} />
+                        <div className="md:col-span-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Full Name</label>
+                            <div className="relative">
+                                <HiOutlineUser className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                                <input name="name" placeholder="Enter student's full name" required className="w-full pl-10 pr-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.name} />
                             </div>
-                            <div className="flex flex-col gap-1">
-                                 <label className="text-[10px] font-bold text-slate-400 ml-2">Roll Number</label>
-                                 <input name="rollNumber" type="text" placeholder="Roll No." className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none font-bold" onChange={handleChange} value={formData.rollNumber} />
+                        </div>
+                        
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Admission Date</label>
+                            <div className="relative">
+                                <HiOutlineCalendar className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                                <input name="admissionDate" type="date" required className="w-full pl-10 pr-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.admissionDate} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">SR No.</label>
+                                <input name="srNo" type="number" placeholder="SR No." required className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.srNo} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Roll No.</label>
+                                <input name="rollNumber" type="text" placeholder="Roll No." className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.rollNumber} />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <select name="grade" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.grade}>
-                        <option value="">Class</option>
-                        {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                    </select>
-
-                    <select name="gender" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.gender}>
-                        <option value="">Gender</option>
-                        {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-
-                    <select name="caste" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.caste}>
-                        <option value="">Select Caste</option>
-                        {CASTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 ml-2">DOB</label>
-                        <input type="date" name="dob" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.dob} />
-                    </div>
-                </div>
-
+                {/* Status Toggles Bar */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input name="aadhaarNumber" placeholder="Aadhaar Number (12 Digits)" maxLength="12" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} value={formData.aadhaarNumber} />
-                    <select name="religion" required className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold outline-none" onChange={handleChange} value={formData.religion}>
-                        <option value="">Religion</option>
-                        {RELIGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Entry Classification</span>
+                            <span className="text-xs font-bold text-slate-700">{formData.isDummy ? 'Dummy Student Registration' : 'Regular School Student'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                            <button type="button" onClick={() => toggleStatus('isDummy', false)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${!formData.isDummy ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Regular</button>
+                            <button type="button" onClick={() => toggleStatus('isDummy', true)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${formData.isDummy ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/20' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <HiOutlineLightningBolt className="w-3.5 h-3.5" /> Dummy
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">RTE Status</span>
+                            <span className="text-xs font-bold text-slate-700">{formData.isRte ? 'Under Right to Education' : 'Standard Enrollment'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                            <button type="button" onClick={() => toggleStatus('isRte', false)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${!formData.isRte ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>No</button>
+                            <button type="button" onClick={() => toggleStatus('isRte', true)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${formData.isRte ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <HiOutlineCheckCircle className="w-3.5 h-3.5" /> Yes
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
+                {/* Academic & Personal Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <HiOutlineAcademicCap className="w-4 h-4 text-[#9853eb]" /> Academic & Demographic Profile
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Class / Grade</label>
+                            <select name="grade" required className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold uppercase text-slate-700 border border-slate-200 cursor-pointer outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.grade}>
+                                <option value="">Select Class</option>
+                                {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Section</label>
+                            <select name="section" className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold uppercase text-slate-700 border border-slate-200 cursor-pointer outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.section}>
+                                <option value="">Select Section (Opt)</option>
+                                {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Gender</label>
+                            <select name="gender" required className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold uppercase text-slate-700 border border-slate-200 cursor-pointer outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.gender}>
+                                <option value="">Select Gender</option>
+                                {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Caste Category</label>
+                            <select name="caste" required className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold uppercase text-slate-700 border border-slate-200 cursor-pointer outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.caste}>
+                                <option value="">Select Category</option>
+                                {CASTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Date of Birth</label>
+                            <input type="date" name="dob" className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.dob} />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Aadhaar Number</label>
+                            <div className="relative">
+                                <HiOutlineIdentification className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                                <input name="aadhaarNumber" placeholder="12 Digit Aadhaar Number" maxLength="12" className="w-full pl-10 pr-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.aadhaarNumber} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Religion</label>
+                            <select name="religion" required className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold uppercase text-slate-700 border border-slate-200 cursor-pointer outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} value={formData.religion}>
+                                <option value="">Select Religion</option>
+                                {RELIGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* High School Stream Options */}
                 {isHighSchool && (
-                    <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 space-y-4">
-                        <div className="flex items-center space-x-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest"><HiOutlineAcademicCap className="w-5 h-5" /><span>Stream & Subjects</span></div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <select name="stream" value={formData.stream} onChange={handleChange} className="p-2 bg-white rounded-xl ring-1 ring-indigo-200 font-bold text-xs">
-                                <option value="">Stream</option>
+                    <div className="bg-gradient-to-br from-purple-50/60 to-indigo-50/30 p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                        <div className="flex items-center space-x-2 text-[#9853eb] font-black text-[10px] uppercase tracking-widest">
+                            <HiOutlineAcademicCap className="w-4 h-4" />
+                            <span>Senior Secondary Stream & Optional Subjects</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <select name="stream" value={formData.stream} onChange={handleChange} className="px-4 py-3 bg-white rounded-2xl ring-1 ring-purple-200 font-bold text-xs uppercase text-slate-700 outline-none focus:ring-2 focus:ring-[#9853eb]">
+                                <option value="">Select Stream</option>
                                 {Object.keys(STREAMS_DATA).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
-                            <input name="optSubject1" value={formData.optSubject1} placeholder="Subject 1" className="p-2 bg-white rounded-xl font-bold text-xs ring-1 ring-indigo-100 outline-none" onChange={handleChange} />
-                            <input name="optSubject2" value={formData.optSubject2} placeholder="Subject 2" className="p-2 bg-white rounded-xl font-bold text-xs ring-1 ring-indigo-100 outline-none" onChange={handleChange} />
-                            <input name="optSubject3" value={formData.optSubject3} placeholder="Subject 3" className="p-2 bg-white rounded-xl font-bold text-xs ring-1 ring-indigo-100 outline-none" onChange={handleChange} />
+                            <input name="optSubject1" value={formData.optSubject1} placeholder="Subject 1" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none focus:ring-2 focus:ring-[#9853eb]" onChange={handleChange} />
+                            <input name="optSubject2" value={formData.optSubject2} placeholder="Subject 2" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none focus:ring-2 focus:ring-[#9853eb]" onChange={handleChange} />
+                            <input name="optSubject3" value={formData.optSubject3} placeholder="Subject 3" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none focus:ring-2 focus:ring-[#9853eb]" onChange={handleChange} />
                         </div>
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input name="fatherName" value={formData.fatherName} placeholder="Father's Name" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} />
-                    <input name="motherName" value={formData.motherName} placeholder="Mother's Name" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} />
-                    <input name="contact" value={formData.contact} placeholder="Contact Number" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} />
-                    <textarea name="address" value={formData.address} placeholder="Address" rows="1" className="p-3 bg-slate-50 rounded-2xl ring-1 ring-slate-200 font-bold text-sm" onChange={handleChange} />
+                {/* Family & Contact Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <HiOutlinePhone className="w-4 h-4 text-[#9853eb]" /> Family Details & Contact Information
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Father's Name</label>
+                            <input name="fatherName" value={formData.fatherName} placeholder="Enter father's name" className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Mother's Name</label>
+                            <input name="motherName" value={formData.motherName} placeholder="Enter mother's name" className="w-full px-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Contact Number</label>
+                            <div className="relative">
+                                <HiOutlinePhone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                                <input name="contact" value={formData.contact} placeholder="Primary phone number" className="w-full pl-10 pr-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all" onChange={handleChange} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Residential Address</label>
+                            <div className="relative">
+                                <HiOutlineLocationMarker className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                                <textarea name="address" value={formData.address} placeholder="Enter full address" rows="1" className="w-full pl-10 pr-4 py-3 bg-slate-50/80 rounded-2xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-[#9853eb] focus:bg-white focus:ring-4 focus:ring-[#9853eb]/10 transition-all resize-none" onChange={handleChange} />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <button type="submit" disabled={loading || !activeSession} className={`w-full py-4 text-white rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 shadow-xl ${formData.isDummy ? 'bg-rose-600 shadow-rose-100' : formData.isRte ? 'bg-emerald-600 shadow-emerald-100' : 'bg-slate-900 shadow-slate-200 hover:bg-indigo-600'}`}>
+                <button type="submit" disabled={loading || !activeSession} className={`w-full py-4 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-50 shadow-lg ${formData.isDummy ? 'bg-rose-500 shadow-rose-500/20 hover:bg-rose-600' : formData.isRte ? 'bg-emerald-500 shadow-emerald-500/20 hover:bg-emerald-600' : 'bg-[#9853eb] shadow-purple-500/25 hover:bg-[#8643d6]'}`}>
                     {loading ? "Processing Admission..." : formData.isDummy ? "Confirm Dummy Admission" : formData.isRte ? "Confirm RTE Admission" : "Confirm Student Admission"}
                 </button>
             </form>
             
             {submissionMessage && (
-                <div className={`text-center font-black text-[10px] uppercase tracking-[0.2em] p-3 rounded-xl ${submissionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                <div className={`text-center font-bold text-[10px] uppercase tracking-[0.2em] p-3 rounded-2xl shadow-sm ${submissionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
                     {submissionMessage.text}
                 </div>
             )}
@@ -270,19 +370,19 @@ export default function AddStudentForm({ onClose, onStudentAdded, activeSession 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
-                <div className="bg-indigo-600 p-4 flex justify-between items-center text-white flex-shrink-0">
-                    <div className="flex space-x-2 bg-white/10 p-1 rounded-2xl border border-white/10">
-                        <button onClick={() => setActiveTab('single')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'single' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
-                            <HiOutlineUserAdd className="inline mr-2 w-4 h-4" /> Single Entry
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md transition-opacity" onClick={onClose}></div>
+            <div className="relative bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh] border border-slate-100">
+                <div className="bg-[#9853eb] p-5 px-6 flex justify-between items-center text-white flex-shrink-0 shadow-sm">
+                    <div className="flex space-x-2 bg-black/10 p-1 rounded-2xl border border-white/10">
+                        <button onClick={() => setActiveTab('single')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === 'single' ? 'bg-white text-[#9853eb] shadow-md' : 'text-white hover:bg-white/15'}`}>
+                            <HiOutlineUserAdd className="w-3.5 h-3.5" /> Single Entry
                         </button>
-                        <button onClick={() => setActiveTab('bulk')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'bulk' ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}>
-                            <HiOutlineCollection className="inline mr-2 w-4 h-4" /> Bulk Upload
+                        <button onClick={() => setActiveTab('bulk')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === 'bulk' ? 'bg-white text-[#9853eb] shadow-md' : 'text-white hover:bg-white/15'}`}>
+                            <HiOutlineCollection className="w-3.5 h-3.5" /> Bulk Upload
                         </button>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                        <HiOutlineX className="w-6 h-6" />
+                    <button onClick={onClose} className="p-2.5 bg-white/10 hover:bg-white/25 rounded-2xl transition-colors text-white">
+                        <HiOutlineX className="w-5 h-5" />
                     </button>
                 </div>
 

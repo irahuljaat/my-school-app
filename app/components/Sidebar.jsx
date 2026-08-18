@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   HiOutlineAcademicCap, HiOutlineClipboardList, HiOutlineHome, 
   HiOutlineUserGroup, HiOutlineCurrencyDollar, HiX,
-  HiOutlineLightningBolt, HiOutlineBell, HiOutlineCog,
+  HiOutlineBell, HiOutlineCog,
   HiBookOpen
 } from 'react-icons/hi';
 
@@ -20,17 +20,17 @@ const NAV_CONFIG = [
     { name: 'Vehicle', icon: HiOutlineClipboardList, path: '/route-management' },
     { name: 'Enquiries', icon: HiOutlineClipboardList, path: '/enquiries' },
     { name: 'Admissions', icon: HiOutlineClipboardList, path: '/Adenquiry' },
-  ]},
-  { section: 'ACCOUNTANCY', items: [
+    { name: 'Post Maker', icon: HiOutlineClipboardList, path: '/posts' },
+    { name: 'Library', icon: HiOutlineClipboardList, path: '/library' },
+    { name: 'Paper Maker', icon: HiOutlineClipboardList, path: '/papers' },
+    { name: 'Hostel', icon: HiOutlineClipboardList, path: '/hostel' },
     { name: 'Fee Collection', icon: HiOutlineCurrencyDollar, path: '/fees-system' },
     { name: 'School Expenses', icon: HiOutlineCurrencyDollar, path: '/school-expenses' },
-  ]},
-  { section: 'SUPPORT', items: [
     { name: 'Exam Management', icon: HiOutlineClipboardList, path: '/exam-manage' },
-    { name: 'Events', icon: HiOutlineLightningBolt, path: '/events' },
     { name: 'Notify', icon: HiOutlineBell, path: '/notify' },
     { name: 'Settings', icon: HiOutlineCog, path: '/settings' },
-  ]}
+  ]},
+ 
 ];
 
 const NavItem = memo(({ name, icon: Icon, path, isActive, onClick }) => (
@@ -111,11 +111,11 @@ export default function Sidebar({ activePath, isOpen, onClose }) {
         <div className="p-4 mt-auto">
           <div className="bg-slate-50 rounded-[16px] p-4 border border-slate-100 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-[#9853eb] font-bold">
-              SH
+              RC
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Administrator</p>
-              <p className="text-sm font-bold text-slate-800">School Head</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Developer</p>
+              <p className="text-sm font-bold text-slate-800">Rahul Choudhary</p>
             </div>
           </div>
         </div>

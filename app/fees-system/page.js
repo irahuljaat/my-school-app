@@ -3,16 +3,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     getFirestore, collection, query, where, getDocs, doc, getDoc, 
-    setDoc, updateDoc, increment, serverTimestamp, writeBatch
+    setDoc, updateDoc, increment, serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from '../firebase/config'; 
 import { 
-    HiRefresh, HiCash, HiClock, HiSearch, HiX, 
-    HiUserCircle, HiCheckCircle, HiExclamationCircle,
-    HiCollection, HiPlus, HiTrash, HiSave, HiGift, HiExclamation,
-    HiCalendar, HiDatabase, HiEye, HiTrendingUp, HiBadgeCheck, HiPrinter,
-    HiPencil
+    HiRefresh, HiCash, HiSearch, HiX, 
+    HiCheckCircle, HiCollection, HiPlus, HiTrash, HiSave, 
+    HiTrendingUp, HiBadgeCheck, HiPrinter, HiPencil, HiCalendar, HiDownload, HiEye
 } from 'react-icons/hi';
 
 // Component Import
@@ -55,6 +53,7 @@ export default function FeesSystemPage() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false); // Pop-up History Modal
     
     // Form States
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -65,6 +64,13 @@ export default function FeesSystemPage() {
     // Inline Edit States for Old Dues
     const [editingDueId, setEditingDueId] = useState(null);
     const [editingDueValue, setEditingDueValue] = useState("");
+
+    // History Edit States inside Pop-up
+    const [editingTxKey, setEditingTxKey] = useState(null);
+    const [editingTxAmount, setEditingTxAmount] = useState("");
+
+    // History Filter State inside Pop-up
+    const [historyFilterDate, setHistoryFilterDate] = useState("");
 
     // Receipt & History States
     const [showReceipt, setShowReceipt] = useState(false);
@@ -115,7 +121,10 @@ export default function FeesSystemPage() {
                     paidAmount: Number(data.paidAmount) || 0,
                     relaxationAmount: Number(data.relaxationAmount) || 0,
                     dueFees: Number(data.dueFees) || 0,
-                    history: data.history || {}
+                    history: data.history || {},
+                    relaxationHistory: data.relaxationHistory || {}, // Added relaxation history mapping
+                    studentName: data.studentName || 'Unknown Student',
+                    grade: data.grade || ''
                 };
             });
             setAnnualPayments(paymentMap);
@@ -129,16 +138,13 @@ export default function FeesSystemPage() {
         return students
             .filter(s => {
                 const matchesSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase());
-                // Logic for Dummy vs Live
                 const matchesType = showOnlyDummy ? s.isDummy === true : (s.isDummy === false || s.isDummy === undefined);
                 return matchesSearch && matchesType;
             })
             .map(s => {
-                const pDoc = annualPayments[s.id] || { totalFee: baseClassFee, paidAmount: 0, relaxationAmount: 0, dueFees: 0, history: {} };
+                const pDoc = annualPayments[s.id] || { totalFee: baseClassFee, paidAmount: 0, relaxationAmount: 0, dueFees: 0, history: {}, relaxationHistory: {} };
                 const isStudentRte = s.isRte === true;
                 const finalTotalFee = isStudentRte ? 0 : (pDoc.totalFee > 0 ? pDoc.totalFee : baseClassFee);
-                
-                // Final balance logic: (Structure + Arrears) - (Paid + Relaxation)
                 const balanceDue = isStudentRte ? 0 : (finalTotalFee + (pDoc.dueFees || 0)) - (pDoc.paidAmount + pDoc.relaxationAmount);
 
                 return { 
@@ -149,11 +155,57 @@ export default function FeesSystemPage() {
                     totalPaid: pDoc.paidAmount, 
                     relaxation: pDoc.relaxationAmount,
                     balanceDue: balanceDue,
-                    history: pDoc.history
+                    history: pDoc.history,
+                    relaxationHistory: pDoc.relaxationHistory
                 };
             })
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }, [students, baseClassFee, annualPayments, searchTerm, showOnlyDummy]);
+
+    // Aggregate All Transactions (Paid and Relaxation) for Pop-up History Feed
+    const allTransactionsList = useMemo(() => {
+        let list = [];
+        Object.entries(annualPayments).forEach(([studentId, data]) => {
+            // Paid Fees History
+            const hist = data.history || {};
+            Object.entries(hist).forEach(([dateKey, amt]) => {
+                const pureDateStr = dateKey.split(' ')[0];
+                list.push({
+                    studentId,
+                    studentName: data.studentName || 'Student',
+                    grade: data.grade || 'N/A',
+                    dateKey,
+                    pureDateStr,
+                    type: 'Paid Fee',
+                    amount: Number(amt) || 0
+                });
+            });
+
+            // Relaxation History
+            const relaxHist = data.relaxationHistory || {};
+            Object.entries(relaxHist).forEach(([dateKey, amt]) => {
+                const pureDateStr = dateKey.split(' ')[0];
+                list.push({
+                    studentId,
+                    studentName: data.studentName || 'Student',
+                    grade: data.grade || 'N/A',
+                    dateKey,
+                    pureDateStr,
+                    type: 'Relaxation',
+                    amount: Number(amt) || 0
+                });
+            });
+        });
+
+        // Filter by Date if specified
+        if (historyFilterDate) {
+            const [y, m, d] = historyFilterDate.split('-');
+            const formattedFilter = `${d}-${m}-${y}`;
+            list = list.filter(item => item.pureDateStr === formattedFilter);
+        }
+
+        return list.sort((a, b) => parseFirestoreDate(b.pureDateStr) - parseFirestoreDate(a.pureDateStr));
+    }, [annualPayments, historyFilterDate]);
 
     // 4. HANDLERS
     const handleUpdateOldDue = async (studentId, currentTotalFee) => {
@@ -178,7 +230,6 @@ export default function FeesSystemPage() {
             const amtNum = Number(paymentAmount) || 0;
             const relaxNum = Number(relaxationAmount) || 0;
             
-            // Logic: Deduct from old dues first, remainder goes to main paidAmount
             const validExistingDue = Math.max(0, selectedStudent.dueFees || 0);
             const deductFromDue = Math.min(amtNum, validExistingDue);
             const addToPaid = amtNum - deductFromDue;
@@ -190,6 +241,8 @@ export default function FeesSystemPage() {
             const docSnap = await getDoc(studentFeeRef);
             
             let finalKey = dateKey;
+            let finalRelaxKey = dateKey;
+
             if (docSnap.exists()) {
                 const existingHistory = docSnap.data().history || {};
                 let count = 1;
@@ -197,18 +250,40 @@ export default function FeesSystemPage() {
                     count++;
                     finalKey = `${dateKey} (${count})`;
                 }
+
+                const existingRelaxHistory = docSnap.data().relaxationHistory || {};
+                let rCount = 1;
+                while (existingRelaxHistory[finalRelaxKey]) {
+                    rCount++;
+                    finalRelaxKey = `${dateKey} (${rCount})`;
+                }
             }
 
-            await setDoc(studentFeeRef, {
+            const updatePayload = {
                 totalFee: selectedStudent.totalFee || baseClassFee,
-                paidAmount: increment(addToPaid),
-                relaxationAmount: increment(relaxNum),
-                dueFees: increment(-deductFromDue), // Decreases the old due appropriately
-                history: amtNum > 0 ? { [finalKey]: amtNum } : (docSnap.exists() ? docSnap.data().history : {}),
                 studentName: selectedStudent.name,
                 grade: selectedClass,
                 lastPaymentDate: dateKey
-            }, { merge: true });
+            };
+
+            if (amtNum > 0) {
+                updatePayload.paidAmount = increment(addToPaid);
+                updatePayload.dueFees = increment(-deductFromDue);
+                updatePayload.history = { 
+                    ...(docSnap.exists() ? docSnap.data().history || {} : {}), 
+                    [finalKey]: amtNum 
+                };
+            }
+
+            if (relaxNum > 0) {
+                updatePayload.relaxationAmount = increment(relaxNum);
+                updatePayload.relaxationHistory = { 
+                    ...(docSnap.exists() ? docSnap.data().relaxationHistory || {} : {}), 
+                    [finalRelaxKey]: relaxNum 
+                };
+            }
+
+            await setDoc(studentFeeRef, updatePayload, { merge: true });
 
             setIsPaymentModalOpen(false);
             setPaymentAmount("");
@@ -216,6 +291,154 @@ export default function FeesSystemPage() {
             fetchFeeData(); 
         } catch (e) { alert("Database update failed."); } 
         finally { setLoading(false); }
+    };
+
+    // Edit Transaction from History Popup
+    const handleUpdateTransaction = async (studentId, dateKey, oldAmount, type) => {
+        try {
+            const newAmt = Number(editingTxAmount) || 0;
+            const diff = newAmt - oldAmount;
+            
+            const studentFeeRef = doc(db, 'sessions', activeSession, 'feePayments', studentId);
+            const docSnap = await getDoc(studentFeeRef);
+            if (!docSnap.exists()) return;
+
+            const currentData = docSnap.data();
+
+            if (type === 'Paid Fee') {
+                const currentHistory = currentData.history || {};
+                currentHistory[dateKey] = newAmt;
+                await updateDoc(studentFeeRef, {
+                    paidAmount: increment(diff),
+                    history: currentHistory
+                });
+            } else {
+                const currentRelaxHistory = currentData.relaxationHistory || {};
+                currentRelaxHistory[dateKey] = newAmt;
+                await updateDoc(studentFeeRef, {
+                    relaxationAmount: increment(diff),
+                    relaxationHistory: currentRelaxHistory
+                });
+            }
+
+            setEditingTxKey(null);
+            setEditingTxAmount("");
+            fetchFeeData();
+        } catch (err) {
+            alert("Failed to update transaction.");
+        }
+    };
+
+    // Delete Transaction from History Popup
+    const handleDeleteTransaction = async (studentId, dateKey, amount, type) => {
+        if (!confirm(`Are you sure you want to delete this ${type} of ${formatCurrency(amount)}? This will adjust the respective ledger balance.`)) return;
+        try {
+            const studentFeeRef = doc(db, 'sessions', activeSession, 'feePayments', studentId);
+            const docSnap = await getDoc(studentFeeRef);
+            if (!docSnap.exists()) return;
+
+            const currentData = docSnap.data();
+            
+            if (type === 'Paid Fee') {
+                const currentHistory = currentData.history || {};
+                delete currentHistory[dateKey];
+                await updateDoc(studentFeeRef, {
+                    paidAmount: increment(-amount),
+                    history: currentHistory
+                });
+            } else {
+                const currentRelaxHistory = currentData.relaxationHistory || {};
+                delete currentRelaxHistory[dateKey];
+                await updateDoc(studentFeeRef, {
+                    relaxationAmount: increment(-amount),
+                    relaxationHistory: currentRelaxHistory
+                });
+            }
+
+            fetchFeeData();
+        } catch (err) {
+            alert("Failed to delete transaction.");
+        }
+    };
+
+    // Excel Export
+    const exportToExcel = () => {
+        let csvContent = "data:text/csv;charset=utf-8,Student Name,Class,Type,Date,Amount\n";
+        allTransactionsList.forEach(t => {
+            csvContent += `"${t.studentName}","${t.grade}","${t.type}","${t.dateKey}",${t.amount}\n`;
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Fee_Collection_History_${activeSession}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Isolated Print Opening New Window (Only History Table)
+    const handlePrintHistoryWindow = () => {
+        const printWindow = window.open('', '_blank', 'width=900,height=650');
+        if (!printWindow) {
+            alert("Please allow pop-ups for printing.");
+            return;
+        }
+
+        const rowsHTML = allTransactionsList.length > 0 
+            ? allTransactionsList.map(t => `
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold; text-transform: uppercase;">${t.studentName}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd;">Class ${t.grade}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd;"><span style="padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: ${t.type === 'Paid Fee' ? '#e6f4ea; color: #137333;' : '#fce8e6; color: #c5221f;'}">${t.type}</span></td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd;">${t.dateKey}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold; color: #137333;">${formatCurrency(t.amount)}</td>
+                </tr>
+              `).join('')
+            : `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #888;">No transaction records found.</td></tr>`;
+
+        const totalSum = allTransactionsList.reduce((acc, curr) => acc + curr.amount, 0);
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Fee Collection History Report - ${activeSession}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                        h2 { text-transform: uppercase; margin-bottom: 5px; }
+                        p { font-size: 12px; color: #666; margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+                        th { background: #f4f4f4; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; text-transform: uppercase; font-size: 11px; }
+                        .total-box { margin-top: 20px; text-align: right; font-size: 16px; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Fee Collection & Relaxation History</h2>
+                    <p>Academic Session: <strong>${activeSession}</strong> | Generated on: ${new Date().toLocaleDateString()}</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Class</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th style="text-align: right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHTML}
+                        </tbody>
+                    </table>
+                    <div class="total-box">
+                        Total Recorded Value: ${formatCurrency(totalSum)}
+                    </div>
+                    <script>
+                        window.onload = function() { window.print(); window.close(); }
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     // 5. RENDER LOGIC
@@ -227,7 +450,7 @@ export default function FeesSystemPage() {
             paymentRecord={receiptData} 
             feeHistory={feeHistory} 
             onClose={() => { setShowReceipt(false); setReceiptData(null); }} 
-            receiptNumber={`REC-${selectedStudent.id.slice(0,4)}-${receiptData.date.replace(/-/g,'')}`} 
+            receiptNumber={`REC-${selectedStudent?.id?.slice(0,4) || 'GEN'}-${receiptData.date.replace(/-/g,'')}`} 
         />;
     }
 
@@ -243,8 +466,15 @@ export default function FeesSystemPage() {
                     </p>
                 </div>
                 
-                <div className="flex gap-3 items-center">
-                    {/* LIVE / DUMMY TOGGLE */}
+                <div className="flex gap-3 items-center flex-wrap">
+                    {/* View Complete History Pop-up Trigger Button */}
+                    <button 
+                        onClick={() => setIsHistoryModalOpen(true)}
+                        className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200"
+                    >
+                        <HiCalendar className="w-4 h-4 text-indigo-400" /> View History Ledger
+                    </button>
+
                     <button 
                         onClick={() => setShowOnlyDummy(!showOnlyDummy)} 
                         className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md border ${showOnlyDummy ? 'bg-rose-500 text-white border-rose-600 shadow-rose-100' : 'bg-white text-slate-400 border-slate-200 shadow-slate-100'}`}
@@ -373,10 +603,120 @@ export default function FeesSystemPage() {
 
             {/* --- MODALS --- */}
 
-            {/* 1. NEUGLASS VIEW MODAL */}
+            {/* 1. COMPLETE HISTORY LEDGER POP-UP MODAL */}
+            {isHistoryModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[3rem] p-8 w-full max-w-4xl max-h-[85vh] shadow-2xl flex flex-col border border-slate-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-2xl font-black uppercase italic text-slate-900 flex items-center gap-2">
+                                    <CalendarIcon className="text-indigo-600" /> Complete Collection & Relaxation History
+                                </h2>
+                                <p className="text-xs font-bold text-slate-400 mt-1">Review all paid fees and relaxation entries across students.</p>
+                            </div>
+                            <button onClick={() => setIsHistoryModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-colors"><HiX className="w-6 h-6 text-slate-400"/></button>
+                        </div>
+
+                        {/* Filter and Export Bar */}
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4 pb-4 border-b border-slate-100">
+                            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 w-full md:w-auto">
+                                <span className="text-[10px] font-black uppercase text-slate-400">Filter Date:</span>
+                                <input 
+                                    type="date" 
+                                    className="bg-transparent font-black text-xs outline-none text-slate-700 cursor-pointer"
+                                    value={historyFilterDate}
+                                    onChange={e => setHistoryFilterDate(e.target.value)}
+                                />
+                                {historyFilterDate && (
+                                    <button onClick={() => setHistoryFilterDate("")} className="text-rose-500 hover:text-rose-700 font-bold text-xs ml-2">Clear</button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                                <button onClick={exportToExcel} className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-100 transition-all">
+                                    <HiDownload className="w-4 h-4" /> Excel
+                                </button>
+                                <button onClick={handlePrintHistoryWindow} className="flex items-center gap-1.5 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
+                                    <HiPrinter className="w-4 h-4" /> Print (PDF/New Page)
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Pop-up Table Content */}
+                        <div className="flex-grow overflow-y-auto pr-2 rounded-2xl border border-slate-100">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                    <tr>
+                                        <th className="px-6 py-4">Student Name</th>
+                                        <th className="px-6 py-4">Class</th>
+                                        <th className="px-6 py-4">Entry Type</th>
+                                        <th className="px-6 py-4">Date</th>
+                                        <th className="px-6 py-4 text-right">Amount</th>
+                                        <th className="px-6 py-4 text-center">Manage</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 text-xs">
+                                    {allTransactionsList.length > 0 ? (
+                                        allTransactionsList.map((tx, idx) => (
+                                            <tr key={`${tx.studentId}-${tx.dateKey}-${tx.type}-${idx}`} className="hover:bg-slate-50/50 transition">
+                                                <td className="px-6 py-3.5 font-black uppercase text-slate-800">{tx.studentName}</td>
+                                                <td className="px-6 py-3.5 font-bold text-slate-500">Class {tx.grade}</td>
+                                                <td className="px-6 py-3.5">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${tx.type === 'Paid Fee' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+                                                        {tx.type}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3.5 font-bold text-indigo-600">{tx.dateKey}</td>
+                                                
+                                                {/* Editable Amount Cell */}
+                                                <td className="px-6 py-3.5 text-right font-black text-slate-900">
+                                                    {editingTxKey === `${tx.studentId}-${tx.dateKey}-${tx.type}` ? (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <input 
+                                                                type="number" 
+                                                                className="w-24 p-1 bg-white shadow-inner rounded border border-indigo-300 text-right font-black text-xs outline-none"
+                                                                value={editingTxAmount}
+                                                                onChange={e => setEditingTxAmount(e.target.value)}
+                                                                autoFocus
+                                                            />
+                                                            <button onClick={() => handleUpdateTransaction(tx.studentId, tx.dateKey, tx.amount, tx.type)} className="text-emerald-600 hover:text-emerald-700 p-1 bg-emerald-50 rounded"><HiCheckCircle size={16}/></button>
+                                                            <button onClick={() => setEditingTxKey(null)} className="text-rose-500 hover:text-rose-600 p-1 bg-rose-50 rounded"><HiX size={16}/></button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className={tx.type === 'Paid Fee' ? 'text-emerald-600' : 'text-rose-500'}>{formatCurrency(tx.amount)}</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-6 py-3.5 text-center">
+                                                    {editingTxKey !== `${tx.studentId}-${tx.dateKey}-${tx.type}` && (
+                                                        <div className="flex justify-center gap-1.5">
+                                                            <button onClick={() => { setEditingTxKey(`${tx.studentId}-${tx.dateKey}-${tx.type}`); setEditingTxAmount(tx.amount); }} className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition" title="Edit Amount">
+                                                                <HiPencil className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteTransaction(tx.studentId, tx.dateKey, tx.amount, tx.type)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition" title="Delete Transaction">
+                                                                <HiTrash className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="6" className="text-center py-12 text-slate-300 font-bold italic">No history records found matching criteria.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 2. VIEW MODAL */}
             {isViewModalOpen && selectedStudent && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[70] flex items-center justify-center p-4">
-                    <div className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[3rem] w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-[20px_20px_60px_rgba(0,0,0,0.05),-20px_-20px_60px_rgba(255,255,255,0.8)] flex flex-col">
+                    <div className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[3rem] w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
                         <div className="p-8 pb-4 flex justify-between items-start">
                             <div>
                                 <h3 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">{selectedStudent.name}</h3>
@@ -385,18 +725,22 @@ export default function FeesSystemPage() {
                             <button onClick={() => setIsViewModalOpen(false)} className="p-3 bg-white/50 hover:bg-white rounded-2xl shadow-inner transition-all"><HiX className="w-6 h-6 text-slate-400" /></button>
                         </div>
                         <div className="flex-grow overflow-y-auto p-8 pt-4 space-y-6">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-white/40 p-5 rounded-[2rem] border border-white/60 shadow-sm">
+                            <div className="grid grid-cols-4 gap-4">
+                                <div className="bg-white/40 p-4 rounded-[2rem] border border-white/60 shadow-sm">
                                     <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Standard Fee</p>
-                                    <p className="text-xl font-black">{formatCurrency(selectedStudent.totalFee)}</p>
+                                    <p className="text-lg font-black">{formatCurrency(selectedStudent.totalFee)}</p>
                                 </div>
-                                <div className="bg-white/40 p-5 rounded-[2rem] border border-white/60 shadow-sm">
+                                <div className="bg-white/40 p-4 rounded-[2rem] border border-white/60 shadow-sm">
                                     <p className="text-[9px] font-black text-amber-500 uppercase mb-1">Arrears/Old</p>
-                                    <p className="text-xl font-black text-amber-600">{formatCurrency(selectedStudent.dueFees)}</p>
+                                    <p className="text-lg font-black text-amber-600">{formatCurrency(selectedStudent.dueFees)}</p>
                                 </div>
-                                <div className="bg-white/40 p-5 rounded-[2rem] border border-white/60 shadow-sm">
+                                <div className="bg-white/40 p-4 rounded-[2rem] border border-white/60 shadow-sm">
                                     <p className="text-[9px] font-black text-emerald-500 uppercase mb-1">Total Paid</p>
-                                    <p className="text-xl font-black text-emerald-600">{formatCurrency(selectedStudent.totalPaid)}</p>
+                                    <p className="text-lg font-black text-emerald-600">{formatCurrency(selectedStudent.totalPaid)}</p>
+                                </div>
+                                <div className="bg-white/40 p-4 rounded-[2rem] border border-white/60 shadow-sm">
+                                    <p className="text-[9px] font-black text-rose-500 uppercase mb-1">Relaxation</p>
+                                    <p className="text-lg font-black text-rose-600">{formatCurrency(selectedStudent.relaxation)}</p>
                                 </div>
                             </div>
                             <div className="space-y-3">
@@ -420,16 +764,13 @@ export default function FeesSystemPage() {
                                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Total Balance Due</p>
                                     <h2 className="text-3xl font-black">{formatCurrency(selectedStudent.balanceDue)}</h2>
                                 </div>
-                                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${selectedStudent.balanceDue <= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}>
-                                    <HiExclamationCircle className="w-7 h-7 text-white" />
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 2. PAYMENT & ARREARS MODAL */}
+            {/* 3. PAYMENT & RELAXATION MODAL */}
             {isPaymentModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl border border-slate-100">
@@ -472,7 +813,7 @@ export default function FeesSystemPage() {
                 </div>
             )}
 
-            {/* 3. STRUCTURE MODAL */}
+            {/* 4. STRUCTURE MODAL */}
             {isStructureModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[3rem] p-8 w-full max-w-2xl shadow-2xl">
@@ -511,4 +852,8 @@ export default function FeesSystemPage() {
             )}
         </div>
     );
+}
+
+function CalendarIcon(props) {
+    return <HiCalendar {...props} />;
 }

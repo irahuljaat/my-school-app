@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from '../firebase/config'; 
 import { 
     HiTrash, HiAcademicCap, HiRefresh, HiX, HiUserGroup, 
-    HiOutlineDocumentText
+    HiOutlineDocumentText, HiPrinter, HiDownload
 } from 'react-icons/hi';
 
 const db = getFirestore(app);
@@ -22,7 +22,11 @@ const formatCurrency = (amount) => {
 const formatDate = (dateInput) => {
     if (!dateInput) return 'N/A';
     const d = dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isNaN(d.getTime())) return 'N/A';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
 };
 
 export default function SchoolExpensePortal() {
@@ -59,16 +63,51 @@ export default function SchoolExpensePortal() {
         if (!activeSession) return;
         setLoading(true);
         try {
-            // 1. FEES (Income)
+            // 1. FEES (Income) - Using history map with date as field and amount as value
             const feeSnap = await getDocs(query(collectionGroup(db, 'feePayments')));
-            const feeList = feeSnap.docs
-                .filter(d => d.ref.path.includes(activeSession))
-                .map(d => ({
-                    id: d.id, source: 'fees', type: 'Income', category: 'Student Fee',
-                    amount: Number(d.data().paidAmount || 0),
-                    date: d.data().createdAt || Timestamp.now(),
-                    note: `Student Fee: ${d.data().studentName || 'Student'}`
-                }));
+            const feeList = [];
+
+            feeSnap.docs.forEach(d => {
+                if (!d.ref.path.includes(activeSession)) return;
+                const data = d.data();
+                const history = data.history;
+                const studentName = data.studentName || 'Student';
+
+                if (history && typeof history === 'object') {
+                    // history is a map where key is date string and value is amount paid
+                    Object.entries(history).forEach(([dateKey, paidAmt]) => {
+                        let parsedDate = Timestamp.now();
+                        // Try parsing dateKey (could be YYYY-MM-DD, timestamp, or formatted string)
+                        if (dateKey) {
+                            const parsed = new Date(dateKey);
+                            if (!isNaN(parsed.getTime())) {
+                                parsedDate = Timestamp.fromDate(parsed);
+                            }
+                        }
+
+                        feeList.push({
+                            id: `${d.id}_${dateKey}`,
+                            source: 'fees',
+                            type: 'Income',
+                            category: 'Student Fee',
+                            amount: Number(paidAmt || 0),
+                            date: parsedDate,
+                            note: `Student Fee: ${studentName}`
+                        });
+                    });
+                } else {
+                    // Fallback to legacy fields if history map is missing
+                    feeList.push({
+                        id: d.id,
+                        source: 'fees',
+                        type: 'Income',
+                        category: 'Student Fee',
+                        amount: Number(data.paidAmount || 0),
+                        date: data.createdAt || Timestamp.now(),
+                        note: `Student Fee: ${studentName}`
+                    });
+                }
+            });
 
             // 2. SALARIES (Expense)
             const salarySnap = await getDocs(collection(db, 'salaryPayments'));
@@ -145,6 +184,93 @@ export default function SchoolExpensePortal() {
                   .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
     }, [feeTransactions, salaryTransactions, manualTransactions, filter]);
 
+    // --- PRINT & EXCEL HANDLERS ---
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        const html = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>School Ledger - Session ${activeSession}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                        h2 { text-align: center; margin-bottom: 5px; }
+                        .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; }
+                        .summary-box { display: flex; justify-content: space-around; margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: #f9f9f9; }
+                        .summary-item { text-align: center; }
+                        .summary-item h4 { margin: 0; font-size: 14px; color: #555; }
+                        .summary-item p { margin: 5px 0 0; font-size: 16px; font-weight: bold; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; font-size: 12px; }
+                        th { background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; }
+                        .text-right { text-align: right; }
+                        .income { color: #0d9488; }
+                        .expense { color: #e11d48; }
+                    </style>
+                </head>
+                <body>
+                    <h2>MVG PUBLIC SR. SEC. SCHOOL - Ledger</h2>
+                    <div class="subtitle">Accounting & Finance Portal | Session: ${activeSession} | Filter: ${filter}</div>
+                    
+                    <div class="summary-box">
+                        <div class="summary-item"><h4>Total Income</h4><p class="income">${formatCurrency(stats.inc)}</p></div>
+                        <div class="summary-item"><h4>Salaries</h4><p class="expense">${formatCurrency(stats.sal)}</p></div>
+                        <div class="summary-item"><h4>Other Expenses</h4><p class="expense">${formatCurrency(stats.exp - stats.sal)}</p></div>
+                        <div class="summary-item"><h4>Net Balance</h4><p>${formatCurrency(stats.bal)}</p></div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Details</th>
+                                <th class="text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${combinedList.map(t => `
+                                <tr>
+                                    <td>${formatDate(t.date)}</td>
+                                    <td>${t.type}</td>
+                                    <td>${t.note}</td>
+                                    <td class="text-right ${t.type === 'Income' ? 'income' : ''}">${t.type === 'Income' ? '+' : '-'}${formatCurrency(t.amount)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <script>
+                        window.onload = function() { window.print(); window.close(); }
+                    </script>
+                </body>
+            </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+    };
+
+    const handleExportExcel = () => {
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Date,Type,Details,Amount,Source\r\n";
+        
+        combinedList.forEach(t => {
+            const dateStr = formatDate(t.date);
+            const typeStr = t.type;
+            const detailsStr = `"${(t.note || "").replace(/"/g, '""')}"`;
+            const amountStr = `${t.type === 'Income' ? '+' : '-'}${t.amount}`;
+            const sourceStr = t.source;
+            csvContent += `${dateStr},${typeStr},${detailsStr},${amountStr},${sourceStr}\r\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `School_Ledger_Session_${activeSession}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (authStatus === 'loading' || !activeSession) return (
         <div className="h-screen flex flex-col items-center justify-center font-bold animate-pulse bg-[#f4f7fe] text-[#9853eb] uppercase tracking-widest text-sm">
             <HiRefresh className="w-8 h-8 mb-4 animate-spin" />
@@ -168,7 +294,7 @@ export default function SchoolExpensePortal() {
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto flex-wrap justify-center md:justify-end">
                     <select 
                         value={activeSession} 
                         onChange={(e) => setActiveSession(e.target.value)} 
@@ -177,11 +303,19 @@ export default function SchoolExpensePortal() {
                         {availableSessions.map(s => <option key={s} value={s}>{s} Session</option>)}
                     </select>
                     
-                    <button onClick={fetchData} className="p-2.5 bg-slate-50 border border-slate-200 rounded-[12px] text-slate-400 hover:text-[#9853eb] hover:bg-[#f3efff] transition-all">
+                    <button onClick={fetchData} className="p-2.5 bg-slate-50 border border-slate-200 rounded-[12px] text-slate-400 hover:text-[#9853eb] hover:bg-[#f3efff] transition-all" title="Refresh Data">
                         <HiRefresh className={`w-5 h-5 ${loading ? 'animate-spin text-[#9853eb]' : ''}`}/>
                     </button>
+
+                    <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#9853eb] hover:bg-[#f3efff] rounded-[12px] font-bold text-xs transition-all">
+                        <HiPrinter className="w-4 h-4" /> Print
+                    </button>
+
+                    <button onClick={handleExportExcel} className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#9853eb] hover:bg-[#f3efff] rounded-[12px] font-bold text-xs transition-all">
+                        <HiDownload className="w-4 h-4" /> Excel
+                    </button>
                     
-                    <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none bg-[#9853eb] text-white px-6 py-2.5 rounded-[12px] font-bold text-xs shadow-md shadow-purple-200 hover:bg-[#8645d4] transition-all">
+                    <button onClick={() => setIsModalOpen(true)} className="bg-[#9853eb] text-white px-6 py-2.5 rounded-[12px] font-bold text-xs shadow-md shadow-purple-200 hover:bg-[#8645d4] transition-all">
                         + Add Entry
                     </button>
                 </div>
