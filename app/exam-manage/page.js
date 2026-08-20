@@ -11,9 +11,10 @@ import {
     HiChevronRight,
     HiOutlineDatabase,
     HiOutlineEye,
-    HiOutlineIdentification, // Icon for Roll Number
+    HiOutlineIdentification, 
     HiOutlineRefresh
 } from 'react-icons/hi';
+import { useColors } from '../components/ColorComponent';
 
 // --- Components ---
 import ExamDefinitionAndAssignment from '../components/ExamDefinitionAndAssignment';
@@ -23,11 +24,11 @@ import DocumentGenerator from '../components/DocumentSelector';
 import ResultReleasePortal from '../components/ResultReleasePortal.jsx';
 
 const VIEWS = {
-    ASSIGNMENT: { id: 'ASSIGNMENT', label: 'Define & Assign', icon: HiOutlineDocumentAdd, color: 'purple' },
-    TIMETABLE: { id: 'TIMETABLE', label: 'Time Table', icon: HiOutlineClock, color: 'amber' },
-    MARKS_ENTRY: { id: 'MARKS_ENTRY', label: 'Marks Entry', icon: HiOutlinePencil, color: 'emerald' },
-    GENERATE: { id: 'GENERATE', label: 'Finalize & Print', icon: HiOutlineChartBar, color: 'indigo' },
-    RELEASE: { id: 'RELEASE', label: 'Result Control', icon: HiOutlineEye, color: 'rose' },
+    ASSIGNMENT: { id: 'ASSIGNMENT', label: 'Define & Assign', icon: HiOutlineDocumentAdd },
+    TIMETABLE: { id: 'TIMETABLE', label: 'Time Table', icon: HiOutlineClock },
+    MARKS_ENTRY: { id: 'MARKS_ENTRY', label: 'Marks Entry', icon: HiOutlinePencil },
+    GENERATE: { id: 'GENERATE', label: 'Finalize & Print', icon: HiOutlineChartBar },
+    RELEASE: { id: 'RELEASE', label: 'Result Control', icon: HiOutlineEye },
 };
 
 // Roll Number Starting Points Mapping
@@ -39,6 +40,7 @@ const CLASS_ROLL_START = {
 };
 
 function ExamManagementPage() {
+    const colors = useColors();
     const [currentView, setCurrentView] = useState(VIEWS.ASSIGNMENT.id);
     const [activeSession, setActiveSession] = useState(null);
     const [isAssigning, setIsAssigning] = useState(false);
@@ -68,7 +70,6 @@ function ExamManagementPage() {
                 return;
             }
 
-            // 1. Group students by class
             const studentsByClass = {};
             snapshot.docs.forEach(docSnap => {
                 const data = docSnap.data();
@@ -79,17 +80,14 @@ function ExamManagementPage() {
 
             const batch = writeBatch(db);
 
-            // 2. Sort classes and assign roll numbers
             Object.keys(studentsByClass).forEach(className => {
                 const startRange = CLASS_ROLL_START[className];
-                if (!startRange) return; // Skip classes not defined in mapping
+                if (!startRange) return;
 
-                // Sort alphabetically by name
                 const sortedList = studentsByClass[className].sort((a, b) => 
                     a.name.localeCompare(b.name)
                 );
 
-                // Assign roll numbers starting from range
                 sortedList.forEach((student, index) => {
                     const newRollNumber = startRange + index;
                     const studentDocRef = doc(db, 'sessions', activeSession, 'students', student.id);
@@ -123,41 +121,43 @@ function ExamManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] pb-20">
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center justify-between w-full md:w-auto">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                                Exam <span className="text-indigo-600">Controller</span>
-                            </h1>
-                            <div className="flex items-center gap-2 mt-1">
-                                <HiOutlineDatabase className="w-3.5 h-3.5 text-indigo-500" />
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                                    Academic Session {activeSession || 'Loading...'}
-                                </p>
-                            </div>
-                        </div>
+        <div className="min-h-screen font-sans relative overflow-hidden p-6 lg:p-8" style={{ backgroundColor: colors.background }}>
+            {/* Soft Background Decorative Blur Elements */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-3xl opacity-10 pointer-events-none -mr-20 -mt-20" style={{ backgroundColor: colors.primary }}></div>
+            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full blur-3xl opacity-10 pointer-events-none -ml-20 -mb-20" style={{ backgroundColor: colors.primary }}></div>
 
-                        {/* Assign Roll Number Button (Mobile only visible if needed, otherwise hidden in flex) */}
+            <div className="max-w-[1440px] mx-auto relative z-10 space-y-8">
+                
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white p-6 md:p-8 rounded-[28px] shadow-sm border border-slate-100">
+                    <div className="text-center md:text-left">
+                        <h1 className="text-2xl font-black tracking-tight text-slate-800">
+                            Exam <span style={{ color: colors.primary }}>Controller</span>
+                        </h1>
+                        <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
+                            <span className="px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
+                                Academic Session {activeSession || 'Loading...'}
+                            </span>
+                            <div className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exam Management Portal</p>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        {/* THE NEW ASSIGN ROLL NUMBER BUTTON */}
+                    <div className="flex items-center gap-3 w-full md:w-auto flex-wrap justify-center md:justify-end">
                         <button
                             onClick={handleAssignRollNumbers}
                             disabled={isAssigning || !activeSession}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50"
+                            className="flex items-center gap-2 px-5 py-3 rounded-full text-xs font-bold border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all disabled:opacity-50 text-slate-700"
                         >
                             {isAssigning ? (
-                                <HiOutlineRefresh className="w-4 h-4 animate-spin" />
+                                <HiOutlineRefresh className="w-4 h-4 animate-spin" style={{ color: colors.primary }} />
                             ) : (
-                                <HiOutlineIdentification className="w-4 h-4" />
+                                <HiOutlineIdentification className="w-4 h-4" style={{ color: colors.primary }} />
                             )}
                             {isAssigning ? 'ASSIGNING...' : 'AUTO ROLL NO'}
                         </button>
 
-                        <nav className="flex items-center bg-slate-100 p-1.5 rounded-2xl overflow-x-auto">
+                        <nav className="flex items-center bg-slate-50 p-1.5 rounded-full border border-slate-200 overflow-x-auto">
                             {Object.values(VIEWS).map((view, index) => {
                                 const Icon = view.icon;
                                 const isActive = currentView === view.id;
@@ -165,14 +165,15 @@ function ExamManagementPage() {
                                     <React.Fragment key={view.id}>
                                         <button
                                             onClick={() => setCurrentView(view.id)}
-                                            className={`flex items-center px-4 py-2.5 rounded-xl transition-all duration-300 whitespace-nowrap ${
+                                            className={`flex items-center px-5 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap text-xs font-bold ${
                                                 isActive 
-                                                ? `bg-white text-slate-900 shadow-sm ring-1 ring-slate-200 font-bold` 
-                                                : `text-slate-500 hover:text-slate-700 font-medium`
+                                                ? 'bg-white shadow-sm' 
+                                                : 'text-slate-400 hover:text-slate-600'
                                             }`}
+                                            style={{ color: isActive ? colors.primary : undefined }}
                                         >
-                                            <Icon className={`w-5 h-5 mr-2 ${isActive ? `text-indigo-600` : ''}`} />
-                                            <span className="hidden lg:inline text-sm">{view.label}</span>
+                                            <Icon className={`w-4 h-4 mr-2`} style={{ color: isActive ? colors.primary : undefined }} />
+                                            <span className="hidden lg:inline">{view.label}</span>
                                         </button>
                                         {index < Object.values(VIEWS).length - 1 && (
                                             <HiChevronRight className="w-4 h-4 text-slate-300 mx-1 hidden lg:block" />
@@ -183,37 +184,38 @@ function ExamManagementPage() {
                         </nav>
                     </div>
                 </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto px-6 mt-8">
-                <div className="flex items-center space-x-3 mb-6">
-                    <div className={`p-2 rounded-lg bg-indigo-50 text-indigo-600`}>
-                        {React.createElement(VIEWS[currentView].icon, { className: "w-6 h-6" })}
+                {/* Main Section Card Container */}
+                <div className="bg-white rounded-[28px] shadow-sm border border-slate-100 overflow-hidden p-6 md:p-8">
+                    <div className="flex items-center space-x-4 mb-8 pb-6 border-b border-slate-100">
+                        <div className="p-3 rounded-2xl" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary }}>
+                            {React.createElement(VIEWS[currentView].icon, { className: "w-6 h-6" })}
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black text-slate-800 tracking-tight">{VIEWS[currentView].label}</h2>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
+                                {currentView === 'ASSIGNMENT' && "Configure exam types and link them to classes."}
+                                {currentView === 'TIMETABLE' && "Schedule dates and times for each subject."}
+                                {currentView === 'MARKS_ENTRY' && "Securely input student marks and remarks."}
+                                {currentView === 'GENERATE' && "Preview and batch print official marksheets."}
+                                {currentView === 'RELEASE' && "Control online visibility of student results."}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">{VIEWS[currentView].label}</h2>
-                        <p className="text-slate-500 text-sm italic">
-                            {currentView === 'ASSIGNMENT' && "Configure exam types and link them to classes."}
-                            {currentView === 'TIMETABLE' && "Schedule dates and times for each subject."}
-                            {currentView === 'MARKS_ENTRY' && "Securely input student marks and remarks."}
-                            {currentView === 'GENERATE' && "Preview and batch print official marksheets."}
-                            {currentView === 'RELEASE' && "Control online visibility of student results."}
-                        </p>
-                    </div>
+
+                    <main className="min-h-[500px]">
+                        {!activeSession ? (
+                            <div className="flex flex-col items-center justify-center h-[400px] text-slate-400 animate-pulse">
+                                <HiOutlineDatabase className="w-12 h-12 mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">Initializing Session Context...</p>
+                            </div>
+                        ) : (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                {renderContent()}
+                            </div>
+                        )}
+                    </main>
                 </div>
-
-                <main className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-100 min-h-[600px] overflow-hidden">
-                    {!activeSession ? (
-                        <div className="flex flex-col items-center justify-center h-[600px] text-slate-400 animate-pulse">
-                            <HiOutlineDatabase className="w-12 h-12 mb-4" />
-                            <p className="font-bold tracking-widest uppercase text-sm">Initializing Session Context...</p>
-                        </div>
-                    ) : (
-                        <div className="p-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {renderContent()}
-                        </div>
-                    )}
-                </main>
             </div>
         </div>
     );

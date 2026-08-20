@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import { 
     HiOutlineUsers, 
     HiOutlineUserAdd, 
     HiOutlineCalendar, 
     HiOutlineCurrencyRupee,
     HiOutlineArrowLeft,
-    HiOutlineSearch,
     HiOutlineHome
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
@@ -20,6 +19,7 @@ import TeacherViewPrint from '../components/TeacherViewPrint';
 import TeacherEditForm from '../components/TeacherEditForm';   
 import TeacherAttendance from '../components/TeacherAttendance'; 
 import SalaryManagement from '../components/SalaryManagement'; 
+import { useColors } from '../components/ColorComponent';
 
 const VIEWS = {
     LIST: 'LIST',
@@ -31,9 +31,15 @@ const VIEWS = {
 };
 
 export default function TeacherManagePage() {
+    const colors = useColors();
+
     const [currentView, setCurrentView] = useState(VIEWS.LIST);
     const [selectedTeacher, setSelectedTeacher] = useState(null); 
     const [activeSession, setActiveSession] = useState(null);
+    const [isPending, startTransition] = useTransition();
+    
+    // State to track the search input
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (doc) => {
@@ -44,21 +50,26 @@ export default function TeacherManagePage() {
         return () => unsub();
     }, []);
 
+    const handleViewChange = (newView, teacher = null) => {
+        startTransition(() => {
+            setSelectedTeacher(teacher);
+            setCurrentView(newView);
+        });
+    };
+
     const renderContent = () => {
         switch (currentView) {
             case VIEWS.ADD:
-                return <AddTeacherForm onSuccess={() => setCurrentView(VIEWS.LIST)} />; 
+                return <AddTeacherForm onSuccess={() => handleViewChange(VIEWS.LIST)} />; 
             case VIEWS.EDIT:
-                if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." />;
+                if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." onReset={() => handleViewChange(VIEWS.LIST)} colors={colors} />;
                 return <TeacherEditForm teacherData={selectedTeacher} onSuccess={() => {
-                    setSelectedTeacher(null); 
-                    setCurrentView(VIEWS.LIST); 
-                }} onCancel={() => setCurrentView(VIEWS.LIST)} />;
+                    handleViewChange(VIEWS.LIST); 
+                }} onCancel={() => handleViewChange(VIEWS.LIST)} />;
             case VIEWS.VIEW_PRINT:
-                if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." />;
+                if (!selectedTeacher) return <ErrorMessage message="Teacher data missing." onReset={() => handleViewChange(VIEWS.LIST)} colors={colors} />;
                 return <TeacherViewPrint teacherData={selectedTeacher} onClose={() => {
-                    setSelectedTeacher(null);
-                    setCurrentView(VIEWS.LIST); 
+                    handleViewChange(VIEWS.LIST); 
                 }} />;
             case VIEWS.ATTENDANCE:
                 return <TeacherAttendance activeSession={activeSession} />;
@@ -68,8 +79,9 @@ export default function TeacherManagePage() {
             default:
                 return (
                     <TeacherList 
-                        setCurrentView={setCurrentView} 
-                        setSelectedTeacher={setSelectedTeacher} 
+                        setCurrentView={(v) => handleViewChange(v)} 
+                        setSelectedTeacher={(t) => setSelectedTeacher(t)} 
+                        searchTerm={searchTerm} 
                     />
                 );
         }
@@ -85,47 +97,59 @@ export default function TeacherManagePage() {
     const isInternalView = currentView === VIEWS.VIEW_PRINT || currentView === VIEWS.EDIT;
 
     return (
-        <div className="min-h-screen bg-[#F2F5FF] relative overflow-hidden p-4 lg:p-10 font-sans selection:bg-indigo-100">
-            {/* Apple Background Accents */}
-            <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-400/20 blur-[120px] rounded-full pointer-events-none" />
-            <div className="fixed bottom-[-5%] left-[-5%] w-[600px] h-[600px] bg-purple-400/20 blur-[150px] rounded-full pointer-events-none" />
+        <div 
+            className="min-h-screen relative p-6 lg:p-10 font-sans transition-colors duration-300 overflow-hidden" 
+            style={{ backgroundColor: colors.background }}
+        >
+            {/* Background Decorative Graphic Elements */}
+            <div className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none opacity-10 blur-3xl -mr-20 -mt-20" style={{ backgroundColor: colors.primary }}></div>
+            <div className="absolute bottom-10 left-0 w-72 h-72 rounded-full pointer-events-none opacity-5 blur-2xl -ml-20" style={{ backgroundColor: colors.primary }}></div>
 
             <div className="max-w-[1440px] mx-auto relative z-10">
                 
-                {/* Modern Apple-style Header */}
-                <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                {/* Header Card */}
+                <div 
+                    className="flex flex-col md:flex-row md:items-end justify-between gap-6 p-6 md:p-8 rounded-[28px] shadow-sm border border-slate-100 transition-colors duration-300 relative overflow-hidden mb-8"
+                    style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                >
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
-                            <HiOutlineHome className="mb-0.5" /> <span>Home</span> <span className="opacity-30">/</span> <span className="text-indigo-500">Staff Portal</span>
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <HiOutlineHome className="mb-0.5" style={{ color: colors.primary }} /> 
+                            <span>Home</span> <span className="opacity-30">/</span> <span style={{ color: colors.primary }}>Staff Portal</span>
                         </div>
-                        <h1 className="text-5xl font-black text-slate-800 tracking-tighter italic uppercase">
-                            Teacher <span className="text-indigo-600">Hub</span>
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase" style={{ color: colors.text }}>
+                            Teacher <span style={{ color: colors.primary }}>Hub</span>
                         </h1>
                         {activeSession && (
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/50 backdrop-blur-md rounded-full border border-white/80 shadow-sm">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{activeSession} Session Active</span>
+                            <div 
+                                className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border shadow-sm"
+                                style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }}
+                            >
+                                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: colors.text }}>
+                                    {activeSession} Session Active
+                                </span>
                             </div>
                         )}
                     </div>
 
-                    {/* Navigation Bar - Floating Glass Pill */}
+                    {/* Navigation Bar - Floating Pill */}
                     {!isInternalView && (
-                        <nav className="flex bg-white/40 backdrop-blur-3xl p-1.5 rounded-[2rem] border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.05)]">
+                        <nav className="flex p-1.5 rounded-full border border-slate-200 shadow-sm bg-slate-50/80">
                             {navItems.map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => {
-                                        setCurrentView(item.id);
-                                        setSelectedTeacher(null); 
-                                    }}
-                                    className={`flex items-center px-6 py-3 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${
+                                    onClick={() => handleViewChange(item.id)}
+                                    style={
                                         currentView === item.id 
-                                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' 
-                                        : 'text-slate-500 hover:text-indigo-600 hover:bg-white/60'
+                                            ? { backgroundColor: colors.primary, color: colors.text === '#0f172a' ? '#ffffff' : colors.text }
+                                            : { color: colors.text }
+                                    }
+                                    className={`flex items-center px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-150 ${
+                                        currentView !== item.id ? 'hover:bg-slate-200/60 text-slate-600' : 'shadow-md'
                                     }`}
                                 >
-                                    <item.icon className={`w-4 h-4 mr-2 ${currentView === item.id ? 'animate-pulse' : ''}`} />
+                                    <item.icon className="w-4 h-4 mr-2" />
                                     {item.label}
                                 </button>
                             ))}
@@ -134,46 +158,22 @@ export default function TeacherManagePage() {
 
                     {isInternalView && (
                         <button 
-                            onClick={() => setCurrentView(VIEWS.LIST)}
-                            className="flex items-center px-8 py-3.5 bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-700 hover:bg-white transition-all shadow-lg active:scale-95"
+                            onClick={() => handleViewChange(VIEWS.LIST)}
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                            className="flex items-center px-8 py-3.5 border border-slate-200 rounded-full text-[11px] font-black uppercase tracking-widest hover:border-slate-300 transition-all shadow-sm active:scale-95"
                         >
-                            <HiOutlineArrowLeft className="w-4 h-4 mr-2" />
+                            <HiOutlineArrowLeft className="w-4 h-4 mr-2" style={{ color: colors.primary }} />
                             Return to Hub
                         </button>
                     )}
                 </div>
 
-                {/* Main Content Glass Container */}
-                <div className="bg-white/40 backdrop-blur-[40px] rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white/70 overflow-hidden relative p-8 lg:p-12">
-                    
-                    {/* Inner Header Glow */}
-                    <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-indigo-50/30 to-transparent pointer-events-none" />
-
-                    {currentView === VIEWS.LIST && (
-                        <div className="relative z-10 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
-                                    <HiOutlineUsers size={28} />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-800 uppercase italic leading-none">Staff Roster</h2>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Personnel Management System</p>
-                                </div>
-                            </div>
-                            
-                            {/* Search Glass Input */}
-                            <div className="relative group w-full max-w-md">
-                                <HiOutlineSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                                <input 
-                                    type="text" 
-                                    placeholder="Search Directory..."
-                                    className="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-[1.5rem] py-4 pl-14 pr-6 text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-8 focus:ring-indigo-500/5 transition-all outline-none shadow-sm"
-                                />
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="relative z-10">
+                {/* Main Content Container */}
+                <div 
+                    className="rounded-[28px] shadow-sm border border-slate-100 overflow-hidden relative p-6 lg:p-10 transition-colors duration-300"
+                    style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                >
+                    <div className={`relative z-10 transition-opacity duration-150 ${isPending ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                         {renderContent()}
                     </div>
                 </div>
@@ -182,18 +182,22 @@ export default function TeacherManagePage() {
     );
 }
 
-const ErrorMessage = ({ message }) => (
-    <div className="flex flex-col items-center justify-center h-[600px] text-center">
-        <div className="w-24 h-24 bg-white/60 backdrop-blur-2xl text-rose-500 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl border border-white animate-bounce">
+const ErrorMessage = ({ message, onReset, colors }) => (
+    <div className="flex flex-col items-center justify-center h-[500px] text-center">
+        <div 
+            className="w-24 h-24 rounded-[28px] flex items-center justify-center mb-8 shadow-sm border border-slate-200"
+            style={{ backgroundColor: colors?.cardBackground || '#ffffff', color: '#f43f5e' }}
+        >
             <HiOutlineUsers className="w-10 h-10" />
         </div>
-        <p className="text-slate-800 text-2xl font-black uppercase italic tracking-tight mb-2">{message}</p>
+        <p className="text-2xl font-black uppercase tracking-tight mb-2" style={{ color: colors?.text }}>{message}</p>
         <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">An error occurred while fetching the directory</p>
         <button 
-            onClick={() => window.location.reload()} 
-            className="bg-slate-800 text-white px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl active:scale-95"
+            onClick={onReset} 
+            style={{ backgroundColor: colors?.primary || '#0d9488', color: '#ffffff' }}
+            className="px-10 py-4 rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:opacity-95 transition-all shadow-md active:scale-95"
         >
-            Hard Reset Page
+            Return to Directory
         </button>
     </div>
 );

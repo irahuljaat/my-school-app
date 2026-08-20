@@ -1,106 +1,98 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HiUpload, HiSave, HiX, HiPencilAlt, HiUserCircle } from 'react-icons/hi';
-import { doc, updateDoc, collection, getDocs } from 'firebase/firestore'; 
+import { HiUpload, HiSave, HiX, HiUserCircle, HiIdentification, HiPhone, HiMail, HiAcademicCap, HiBookOpen, HiCurrencyRupee, HiCalendar, HiPencilAlt } from 'react-icons/hi';
+import { doc, updateDoc } from 'firebase/firestore'; 
 import { db } from '../firebase/config'; 
 import Image from 'next/image';
+import { useColors } from '../components/ColorComponent';
 
-// --- CLOUDINARY UPLOAD HELPER ---
+// --- CORE LOGIC ---
+
 const uploadImageToCloudinary = async (file) => {
+    if (!file) return null;
     const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
     
     if (!CLOUD_NAME || !UPLOAD_PRESET) {
-        throw new Error("Cloudinary configuration missing in environment variables.");
+        throw new Error("Cloudinary configuration missing.");
     }
-
-    const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
     
+    const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', UPLOAD_PRESET);
 
     const response = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
-    const data = await response.json();
-    
     if (!response.ok) {
-        throw new Error(data.error?.message || "Cloudinary upload failed");
+        const errorData = await response.json();
+        throw new Error(`Cloudinary upload failed: ${errorData.error?.message || response.statusText}`);
     }
+    const data = await response.json();
     return data.secure_url;
 };
 
-function TeacherEditForm({ teacherData, onSuccess }) {
-    // Initialize form with existing teacher data, ensuring arrays for assigned features/classes
+// --- UI COMPONENT ---
+
+function TeacherEditForm({ teacherData, docId, onSuccess }) {
+    const colors = useColors();
     const [formData, setFormData] = useState({
-        ...teacherData,
-        assignedClasses: teacherData.assignedClasses || [],
-        assignedFeatures: teacherData.assignedFeatures || []
+        employeeId: teacherData?.employeeId || teacherData?.employId || '',
+        name: teacherData?.name || teacherData?.teacherName || '',
+        phone: teacherData?.phone || '',
+        email: teacherData?.email || '',
+        address: teacherData?.address || '',
+        qualification: teacherData?.qualification || '',
+        subjectsTaught: teacherData?.subjectsTaught || '',
+        salary: teacherData?.salary || '',
+        joiningDate: teacherData?.joiningDate || '',
+        dob: teacherData?.dob || '',
+        gender: teacherData?.gender || 'MALE',
+        bloodGroup: teacherData?.bloodGroup || '',
+        designation: teacherData?.designation || '',
+        experience: teacherData?.experience || '',
+        imageUrl: teacherData?.imageUrl || '',
     });
-    
-    const [availableClasses, setAvailableClasses] = useState([]);
-    const [availableFeatures, setAvailableFeatures] = useState([]);
-    
+
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [imageFile, setImageFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(teacherData.imageUrl || '');
+    const [previewUrl, setPreviewUrl] = useState(teacherData?.imageUrl || null);
 
-    // Fetch classes and features lists from Firestore to display options
     useEffect(() => {
-        const fetchMetadata = async () => {
-            try {
-                // Adjust collection names as per your database schema ('classes', 'features' or similar)
-                const classesSnapshot = await getDocs(collection(db, 'classes'));
-                const classList = classesSnapshot.docs.map(docSnap => ({
-                    id: docSnap.id,
-                    name: docSnap.data().className || docSnap.data().name || docSnap.id
-                }));
-                setAvailableClasses(classList);
+        if (!imageFile) return;
+        const objectUrl = URL.createObjectURL(imageFile);
+        setPreviewUrl(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [imageFile]);
 
-                const featuresSnapshot = await getDocs(collection(db, 'features'));
-                const featureList = featuresSnapshot.docs.map(docSnap => ({
-                    id: docSnap.id,
-                    name: docSnap.data().featureName || docSnap.data().name || docSnap.id
-                }));
-                setAvailableFeatures(featureList);
-            } catch (err) {
-                console.error("Error fetching assignment metadata:", err);
-            }
-        };
-        fetchMetadata();
-    }, []);
-
-    // Memory cleanup for image previews
-    useEffect(() => {
-        return () => {
-            if (previewUrl && previewUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(previewUrl);
-            }
-        };
-    }, [previewUrl]);
+    if (!teacherData) {
+        return (
+            <div className="max-w-md mx-auto mt-20 p-8 rounded-[2rem] shadow-xl text-center space-y-4 border border-slate-100"
+                 style={{ backgroundColor: colors.cardBackground }}>
+                <h3 className="text-xl font-bold text-rose-600">Teacher Data Missing</h3>
+                <p className="text-xs text-slate-400">No valid educator record was selected for editing.</p>
+                <button 
+                    onClick={onSuccess} 
+                    className="px-6 py-2.5 text-white rounded-full text-xs font-bold shadow-md"
+                    style={{ backgroundColor: colors.primary }}
+                >
+                    Back to Roster
+                </button>
+            </div>
+        );
+    }
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleCheckboxChange = (field, itemValue) => {
-        setFormData(prev => {
-            const currentList = prev[field] || [];
-            if (currentList.includes(itemValue)) {
-                return { ...prev, [field]: currentList.filter(item => item !== itemValue) };
-            } else {
-                return { ...prev, [field]: [...currentList, itemValue] };
-            }
-        });
-    };
-
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
             setImageFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
+            setMessage(null);
         }
     };
 
@@ -109,35 +101,53 @@ function TeacherEditForm({ teacherData, onSuccess }) {
         setIsLoading(true);
         setMessage(null);
 
-        try {
-            let finalImageUrl = formData.imageUrl;
+        if (!formData.name || !formData.phone || !formData.salary || !formData.employeeId) {
+            setMessage({ type: 'error', text: 'Required fields: Name, Phone, Salary, and Employee ID.' });
+            setIsLoading(false);
+            return;
+        }
 
-            // 1. Handle New Image Upload if selected
+        try {
+            let uploadedImageUrl = formData.imageUrl; 
             if (imageFile) {
                 setMessage({ type: 'info', text: 'Uploading new profile photo...' });
-                finalImageUrl = await uploadImageToCloudinary(imageFile);
+                uploadedImageUrl = await uploadImageToCloudinary(imageFile); 
             }
 
-            // 2. Prepare clean data for Firestore
-            const { id, ...cleanData } = formData;
-            
-            const dataToUpdate = {
-                ...cleanData,
-                imageUrl: finalImageUrl,
-                updatedAt: new Date().toISOString(),
-                salary: Number(cleanData.salary || 0) // Ensure numeric storage
+            const formattedName = formData.name.trim().toUpperCase();
+            const empId = formData.employeeId.trim();
+
+            const targetDocId = docId || `${formattedName.replace(/\s+/g, '')}${empId}`;
+
+            const finalData = {
+                employeeId: empId,
+                employId: empId,
+                name: formattedName,
+                teacherName: formattedName,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                qualification: formData.qualification,
+                subjectsTaught: formData.subjectsTaught,
+                salary: Number(formData.salary),
+                joiningDate: formData.joiningDate,
+                dob: formData.dob,
+                gender: formData.gender,
+                bloodGroup: formData.bloodGroup,
+                designation: formData.designation,
+                experience: formData.experience,
+                imageUrl: uploadedImageUrl,
+                lastUpdated: new Date().toUTCString()
             };
 
-            // 3. Update Firestore Collection: 'teachers'
-            const teacherDocRef = doc(db, 'teachers', id);
-            await updateDoc(teacherDocRef, dataToUpdate);
-
-            setMessage({ type: 'success', text: 'Teacher records updated successfully!' });
+            setMessage({ type: 'info', text: 'Updating teacher record in database...' });
             
-            // Close modal/form after success
-            setTimeout(() => {
-                if (onSuccess) onSuccess();
-            }, 1500);
+            const teacherDocRef = doc(db, 'teachers', targetDocId);
+            await updateDoc(teacherDocRef, finalData);
+
+            setMessage({ type: 'success', text: `Teacher record successfully updated!` });
+            
+            setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
 
         } catch (error) {
             setMessage({ type: 'error', text: error.message });
@@ -147,270 +157,329 @@ function TeacherEditForm({ teacherData, onSuccess }) {
     };
 
     return (
-        <div className="max-w-5xl mx-auto p-8 bg-white rounded-3xl mt-10 shadow-2xl border border-slate-100">
+        <div className="max-w-5xl mx-auto p-6 md:p-10 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden transition-colors duration-300"
+             style={{ backgroundColor: colors.background }}>
+            
+            {/* Background Decorative Accent Blobs */}
+            <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-10"
+                 style={{ backgroundColor: colors.primary }}></div>
+            <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-10"
+                 style={{ backgroundColor: colors.primary }}></div>
+
             {/* Header */}
-            <div className="flex justify-between items-start mb-10">
-                <div>
-                    <h2 className="text-3xl font-bold text-[#303972] flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-                            <HiPencilAlt size={24} />
-                        </div>
-                        Edit Educator Details
-                    </h2>
-                    <p className="text-sm font-medium text-slate-400 mt-2">
-                        Managing Record: <span className="text-purple-600 font-bold">{formData.srNo || 'N/A'}</span>
-                    </p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 pb-6 border-b border-slate-100 gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                    <div className="p-3.5 rounded-full text-white shadow-lg"
+                         style={{ backgroundColor: colors.primary, boxShadow: `0 10px 25px -5px ${colors.primary}40` }}>
+                        <HiPencilAlt size={26} />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-black tracking-tight" style={{ color: colors.text }}>
+                            Edit Educator Record
+                        </h2>
+                        <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">Staff Management Portal</p>
+                    </div>
                 </div>
                 <button 
                     onClick={onSuccess} 
-                    className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
+                    className="p-3 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Close"
                 >
-                    <HiX size={28} />
+                    <HiX size={24} />
                 </button>
             </div>
 
             {/* Status Notifications */}
             {message && (
-                <div className={`mb-8 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest border ${
-                    message.type === 'error' 
-                        ? 'bg-rose-50 text-rose-600 border-rose-100' 
-                        : message.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        : 'bg-blue-50 text-blue-600 border-blue-100'
-                }`}>
+                <div className={`mb-8 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest border transition-all duration-300 shadow-sm ${
+                    message.type === 'error' ? 'bg-rose-50 text-rose-600 border-rose-200' : 
+                    message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                    'bg-blue-50 border-blue-200'
+                }`} style={message.type === 'info' ? { color: colors.primary } : {}}>
                     {message.text}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-10">
-                {/* Profile Photo Section */}
-                <div className="flex flex-col md:flex-row items-center gap-8 pb-10 border-b border-slate-100">
-                    <div className="relative w-32 h-32 rounded-3xl overflow-hidden bg-slate-50 border-4 border-white shadow-xl">
+            <form onSubmit={handleSubmit} className="space-y-10 relative z-10">
+                
+                {/* Photo Upload Section */}
+                <div className="flex flex-col md:flex-row items-center gap-8 p-6 backdrop-blur-md rounded-[2rem] border border-slate-100 shadow-sm"
+                     style={{ backgroundColor: colors.cardBackground }}>
+                    <div className="relative w-32 h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-xl flex items-center justify-center group">
                         {previewUrl ? (
-                            <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                            <Image src={previewUrl} alt="Preview" fill className="object-cover" unoptimized />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-200">
-                                <HiUserCircle size={80} />
-                            </div>
+                            <HiUserCircle size={90} className="text-slate-300 group-hover:scale-105 transition-transform" />
                         )}
                     </div>
-                    <div className="text-center md:text-left">
-                        <label className="block text-sm font-bold text-[#303972] mb-3 uppercase tracking-tighter">Profile Photo</label>
+                    <div className="text-center md:text-left space-y-3">
+                        <label className="block text-xs font-black uppercase tracking-widest" style={{ color: colors.text }}>Staff Profile Photograph</label>
+                        <p className="text-xs text-slate-400">Upload or update professional passport-size image (PNG, JPG).</p>
                         <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                            <label className="cursor-pointer bg-[#303972] text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-[#3f4b94] transition-all flex items-center gap-2 shadow-lg shadow-blue-100">
-                                <HiUpload /> Choose New Image
+                            <label className="cursor-pointer text-white px-6 py-3 rounded-full text-xs font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-lg"
+                                   style={{ backgroundColor: colors.primary, boxShadow: `0 8px 20px -4px ${colors.primary}40` }}>
+                                <HiUpload size={16} /> Choose New Image
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                             </label>
-                            {previewUrl && (
+                            {imageFile && (
                                 <button 
                                     type="button" 
-                                    onClick={() => { setPreviewUrl(''); setImageFile(null); setFormData(prev => ({...prev, imageUrl: ''})); }}
-                                    className="px-6 py-2.5 border border-rose-200 text-rose-500 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all"
+                                    onClick={() => {
+                                        setImageFile(null);
+                                        setPreviewUrl(teacherData?.imageUrl || null);
+                                    }}
+                                    className="px-6 py-3 border border-rose-200 text-rose-500 hover:bg-rose-50 rounded-full text-xs font-bold transition-all flex items-center gap-2"
                                 >
-                                    Remove Photo
+                                    <HiX size={16} /> Revert Photo
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Main Information Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
-                    {/* Full Name */}
+                {/* Form Inputs Grid - Comprehensive Fields Matching Add Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                    
+                    {/* Employee ID */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Full Name</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiIdentification size={16} style={{ color: colors.primary }} /> Employee ID *
+                        </label>
                         <input
-                            name="name"
-                            value={formData.name || ''}
+                            name="employeeId"
+                            placeholder="e.g. 001"
+                            value={formData.employeeId}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                             required
                         />
                     </div>
 
-                    {/* Status */}
+                    {/* Name */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Current Status</label>
-                        <select
-                            name="status"
-                            value={formData.status || 'Active'}
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Full Name *
+                        </label>
+                        <input
+                            name="name"
+                            placeholder="e.g. Rahul Choudhary"
+                            value={formData.name}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
-                        >
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                            <option value="On Leave">On Leave</option>
-                        </select>
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                            required
+                        />
                     </div>
 
-                    {/* Mobile */}
+                    {/* Designation */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Mobile Number</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Designation
+                        </label>
+                        <input
+                            name="designation"
+                            placeholder="e.g. Social Science Teacher"
+                            value={formData.designation}
+                            onChange={handleChange}
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                        />
+                    </div>
+
+                    {/* Phone */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiPhone size={16} style={{ color: colors.primary }} /> Mobile Number *
+                        </label>
                         <input
                             name="phone"
-                            value={formData.phone || ''}
+                            placeholder="988710342"
+                            value={formData.phone}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                             required
                         />
                     </div>
 
                     {/* Email */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email Address</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiMail size={16} style={{ color: colors.primary }} /> Email Address
+                        </label>
                         <input
                             type="email"
                             name="email"
-                            value={formData.email || ''}
+                            placeholder="teacher@school.com"
+                            value={formData.email}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                         />
                     </div>
 
                     {/* Qualification */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Qualification</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiAcademicCap size={16} style={{ color: colors.primary }} /> Qualification
+                        </label>
                         <input
                             name="qualification"
-                            value={formData.qualification || ''}
+                            placeholder="e.g. B.A, B.ED"
+                            value={formData.qualification}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                         />
                     </div>
 
                     {/* Subjects */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Subjects Taught</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiBookOpen size={16} style={{ color: colors.primary }} /> Subjects Taught
+                        </label>
                         <input
                             name="subjectsTaught"
-                            value={formData.subjectsTaught || ''}
+                            placeholder="e.g. Mathematics, Hindi"
+                            value={formData.subjectsTaught}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                         />
                     </div>
 
                     {/* Salary */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Monthly Salary (₹)</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiCurrencyRupee size={16} style={{ color: colors.primary }} /> Monthly Salary *
+                        </label>
                         <input
                             type="number"
                             name="salary"
-                            value={formData.salary || ''}
+                            placeholder="INR"
+                            value={formData.salary}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                             required
                         />
                     </div>
 
                     {/* Joining Date */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Joining Date</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <HiCalendar size={16} style={{ color: colors.primary }} /> Joining Date
+                        </label>
                         <input
-                            type="date"
+                            type="text"
                             name="joiningDate"
-                            value={formData.joiningDate || ''}
+                            placeholder="e.g. 01-07-2025"
+                            value={formData.joiningDate}
                             onChange={handleChange}
-                            className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none"
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                        />
+                    </div>
+
+                    {/* DOB */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Date of Birth (DOB)
+                        </label>
+                        <input
+                            type="text"
+                            name="dob"
+                            placeholder="e.g. 11-11-2004"
+                            value={formData.dob}
+                            onChange={handleChange}
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                        />
+                    </div>
+
+                    {/* Gender */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Gender
+                        </label>
+                        <select
+                            name="gender"
+                            value={formData.gender}
+                            onChange={handleChange}
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm cursor-pointer"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                        >
+                            <option value="MALE">MALE</option>
+                            <option value="FEMALE">FEMALE</option>
+                            <option value="OTHER">OTHER</option>
+                        </select>
+                    </div>
+
+                    {/* Blood Group */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Blood Group
+                        </label>
+                        <input
+                            name="bloodGroup"
+                            placeholder="e.g. A+"
+                            value={formData.bloodGroup}
+                            onChange={handleChange}
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
+                        />
+                    </div>
+
+                    {/* Experience */}
+                    <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            Experience
+                        </label>
+                        <input
+                            name="experience"
+                            placeholder="e.g. 1 Year"
+                            value={formData.experience}
+                            onChange={handleChange}
+                            className="w-full p-4 border-2 border-slate-100 rounded-full text-sm font-bold focus:ring-4 transition-all outline-none shadow-sm"
+                            style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                         />
                     </div>
                 </div>
 
-                {/* Assigned Classes Selection */}
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Assigned Classes</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {availableClasses.length > 0 ? (
-                            availableClasses.map((cls) => {
-                                const isSelected = formData.assignedClasses?.includes(cls.name);
-                                return (
-                                    <button
-                                        type="button"
-                                        key={cls.id}
-                                        onClick={() => handleCheckboxChange('assignedClasses', cls.name)}
-                                        className={`p-3 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${
-                                            isSelected 
-                                                ? 'bg-purple-50 border-purple-200 text-purple-700 shadow-sm' 
-                                                : 'bg-[#F8F9FD] border-transparent text-[#303972] hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        <span>{cls.name}</span>
-                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isSelected ? 'bg-purple-600 text-white' : 'border border-slate-300'}`}>
-                                            {isSelected ? '✓' : ''}
-                                        </span>
-                                    </button>
-                                );
-                            })
-                        ) : (
-                            <p className="text-xs text-slate-400 italic">No classes found in database.</p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Assigned Features / Permissions Selection */}
-                <div className="space-y-3 pt-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Assigned Features / Modules</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {availableFeatures.length > 0 ? (
-                            availableFeatures.map((feat) => {
-                                const isSelected = formData.assignedFeatures?.includes(feat.name);
-                                return (
-                                    <button
-                                        type="button"
-                                        key={feat.id}
-                                        onClick={() => handleCheckboxChange('assignedFeatures', feat.name)}
-                                        className={`p-3 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${
-                                            isSelected 
-                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' 
-                                                : 'bg-[#F8F9FD] border-transparent text-[#303972] hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        <span>{feat.name}</span>
-                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isSelected ? 'bg-indigo-600 text-white' : 'border border-slate-300'}`}>
-                                            {isSelected ? '✓' : ''}
-                                        </span>
-                                    </button>
-                                );
-                            })
-                        ) : (
-                            <p className="text-xs text-slate-400 italic">No features found in database.</p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Full Width Address */}
-                <div className="space-y-2 pt-4">
+                {/* Address */}
+                <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Residential Address</label>
                     <textarea
                         name="address"
-                        rows="3"
-                        value={formData.address || ''}
+                        rows="2"
+                        placeholder="Enter full home address"
+                        value={formData.address}
                         onChange={handleChange}
-                        className="w-full p-4 bg-[#F8F9FD] border-2 border-transparent rounded-2xl text-sm font-bold text-[#303972] focus:border-purple-200 focus:bg-white transition-all outline-none resize-none"
+                        className="w-full p-5 border-2 border-slate-100 rounded-[2rem] text-sm font-bold focus:ring-4 transition-all outline-none resize-none shadow-sm"
+                        style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                     ></textarea>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-end items-center gap-6 pt-10 border-t border-slate-50">
+                {/* Submit Section */}
+                <div className="flex justify-between items-center pt-8 border-t border-slate-100">
                     <button
                         type="button"
                         onClick={onSuccess}
-                        className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
+                        className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest px-4 py-2"
                     >
-                        Cancel Changes
+                        Cancel
                     </button>
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="px-12 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-sm font-bold shadow-xl shadow-purple-100 flex items-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-10 py-4 hover:brightness-110 text-white rounded-full text-xs font-black uppercase tracking-widest shadow-xl flex items-center gap-3 transition-all disabled:opacity-50"
+                        style={{ backgroundColor: colors.primary, boxShadow: `0 10px 25px -5px ${colors.primary}40` }}
                     >
                         {isLoading ? (
-                            <span className="flex items-center gap-2 italic animate-pulse">
-                                Processing...
-                            </span>
+                            <span className="flex items-center gap-2 animate-pulse italic">Updating Records...</span>
                         ) : (
-                            <>
-                                <HiSave size={18} /> Update Profile
-                            </>
+                            <><HiSave size={18} /> Save Changes</>
                         )}
                     </button>
                 </div>

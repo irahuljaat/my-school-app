@@ -27,8 +27,10 @@ import {
   updateDoc, 
   deleteDoc 
 } from 'firebase/firestore';
+import { useColors } from '../components/ColorComponent';
 
 export default function HostelManagementPage() {
+  const colors = useColors();
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'hostels' | 'roomTypes'
   const [activeSession, setActiveSession] = useState('2026-27');
   const [loading, setLoading] = useState(true);
@@ -77,17 +79,17 @@ export default function HostelManagementPage() {
         }
         setActiveSession(currentActiveSession);
 
-        // Fetch Hotels (sessions > {activeSession} > hotels)
+        // Fetch Hostels
         const hotelsRef = collection(db, 'sessions', currentActiveSession, 'hotels');
         const hotelsSnap = await getDocs(hotelsRef);
         setHostels(hotelsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-        // Fetch Room Types (sessions > {activeSession} > roomTypes)
+        // Fetch Room Types
         const roomTypesRef = collection(db, 'sessions', currentActiveSession, 'roomTypes');
         const roomTypesSnap = await getDocs(roomTypesRef);
         setRoomTypes(roomTypesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-        // Fetch Hostel Rooms (sessions > {activeSession} > hostelRooms)
+        // Fetch Hostel Rooms
         const roomsRef = collection(db, 'sessions', currentActiveSession, 'hostelRooms');
         const roomsSnap = await getDocs(roomsRef);
         setRooms(roomsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -175,7 +177,7 @@ export default function HostelManagementPage() {
           <title>${title} - ${activeSession}</title>
           <style>
             body { font-family: Arial, sans-serif; color: #333; margin: 20px; }
-            h2 { text-align: center; color: #4f46e5; margin-bottom: 5px; }
+            h2 { text-align: center; color: ${colors.primary}; margin-bottom: 5px; }
             p { text-align: center; color: #666; font-size: 12px; margin-top: 0; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
             th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
@@ -188,7 +190,7 @@ export default function HostelManagementPage() {
           <h2>${title}</h2>
           <p>Active Academic Session: ${activeSession}</p>
           <div style="text-align: right; margin-bottom: 10px;" class="no-print">
-            <button onclick="window.print()" style="padding: 8px 16px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Print / Save as PDF</button>
+            <button onclick="window.print()" style="padding: 8px 16px; background: ${colors.primary}; color: white; border: none; border-radius: 9999px; cursor: pointer; font-weight: bold;">Print / Save as PDF</button>
           </div>
           <table>
             <thead>
@@ -371,41 +373,71 @@ export default function HostelManagementPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 font-sans" ref={printRef}>
+    <div 
+      className="flex flex-col min-h-screen text-slate-800 font-sans relative overflow-hidden transition-colors duration-300"
+      style={{ backgroundColor: colors.background }}
+      ref={printRef}
+    >
+      {/* Decorative Blur Background Elements */}
+      <div 
+        className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none"
+        style={{ backgroundColor: colors.primary }}
+      />
+      <div 
+        className="absolute bottom-10 right-10 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none"
+        style={{ backgroundColor: colors.primary }}
+      />
 
       {/* Header & Sub-Navigation Tabs */}
-      <header className="flex flex-col bg-white border-b border-slate-200 shadow-xs shrink-0 print:hidden">
-        <div className="flex items-center justify-between px-8 py-4">
+      <header className="flex flex-col bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-xs shrink-0 print:hidden z-10">
+        <div className="flex items-center justify-between px-8 py-5 max-w-[1440px] mx-auto w-full">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-indigo-50 rounded-xl border border-indigo-100">
-              <Building2 className="w-6 h-6 text-indigo-600" />
+            <div 
+              className="p-3 rounded-2xl border shadow-xs"
+              style={{ backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}30`, color: colors.primary }}
+            >
+              <Building2 className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">Hostel Management</h1>
-              <p className="text-xs text-slate-500">Active Academic Session: <span className="font-semibold text-indigo-600">{activeSession}</span></p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Active Academic Session: <span className="font-semibold" style={{ color: colors.primary }}>{activeSession}</span>
+              </p>
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex px-8 space-x-6 border-t border-slate-100 bg-slate-50/50 text-sm font-semibold">
+        <div className="max-w-[1440px] mx-auto w-full px-8 flex space-x-8 border-t border-slate-100 bg-transparent text-sm font-semibold">
           <button
             onClick={() => setActiveTab('rooms')}
-            className={`py-3 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${activeTab === 'rooms' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+            className={`py-3.5 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${
+              activeTab === 'rooms' 
+                ? 'border-slate-900 text-slate-900 font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
           >
             <BedDouble className="w-4 h-4" />
             <span>Hostel Rooms</span>
           </button>
           <button
             onClick={() => setActiveTab('hostels')}
-            className={`py-3 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${activeTab === 'hostels' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+            className={`py-3.5 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${
+              activeTab === 'hostels' 
+                ? 'border-slate-900 text-slate-900 font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
           >
             <Home className="w-4 h-4" />
             <span>Hostel List</span>
           </button>
           <button
             onClick={() => setActiveTab('roomTypes')}
-            className={`py-3 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${activeTab === 'roomTypes' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+            className={`py-3.5 flex items-center space-x-2 border-b-2 cursor-pointer transition-colors ${
+              activeTab === 'roomTypes' 
+                ? 'border-slate-900 text-slate-900 font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
           >
             <Layers className="w-4 h-4" />
             <span>Room Type</span>
@@ -414,15 +446,15 @@ export default function HostelManagementPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[1500px] w-full mx-auto p-6 lg:p-8">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto p-6 lg:p-8 relative z-10">
         
         {/* ================= TAB 1: HOSTEL ROOMS ================= */}
         {activeTab === 'rooms' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Form Column */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs sticky top-6">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="lg:col-span-4 bg-white border border-slate-100 rounded-[28px] p-6 md:p-8 shadow-sm sticky top-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
                 <h2 className="font-bold text-base text-slate-900">
                   {editingRoomId ? 'Edit Hostel Room' : 'Add Hostel Room'}
                 </h2>
@@ -439,23 +471,23 @@ export default function HostelManagementPage() {
 
               <form onSubmit={handleSaveRoom} className="space-y-4 text-sm">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Room Number / Name *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Room Number / Name *</label>
                   <input
                     type="text"
                     placeholder="e.g. B5"
                     value={roomNumber}
                     onChange={(e) => setRoomNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Hostel *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hostel *</label>
                   <select
                     value={roomHostel}
                     onChange={(e) => setRoomHostel(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all cursor-pointer"
                   >
                     {hostels.length > 0 ? (
                       hostels.map(h => <option key={h.id} value={h.hostelName}>{h.hostelName}</option>)
@@ -471,11 +503,11 @@ export default function HostelManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Room Type *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Room Type *</label>
                   <select
                     value={roomType}
                     onChange={(e) => setRoomType(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all cursor-pointer"
                   >
                     {roomTypes.length > 0 ? (
                       roomTypes.map(t => <option key={t.id} value={t.typeName}>{t.typeName}</option>)
@@ -492,44 +524,45 @@ export default function HostelManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Number Of Bed *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Number Of Bed *</label>
                   <input
                     type="number"
                     min="1"
                     value={numberOfBed}
                     onChange={(e) => setNumberOfBed(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Cost Per Bed (₹) *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Cost Per Bed (₹) *</label>
                   <input
                     type="text"
                     placeholder="e.g. 3000.00"
                     value={costPerBed}
                     onChange={(e) => setCostPerBed(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Description</label>
                   <textarea
                     rows="3"
                     placeholder="Optional room notes..."
                     value={roomDescription}
                     onChange={(e) => setRoomDescription(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all resize-none"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="flex items-center space-x-1.5 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 px-6 py-3.5 text-white font-bold rounded-full text-xs transition-all active:scale-[0.99] shadow-sm cursor-pointer"
+                    style={{ backgroundColor: colors.primary }}
                   >
                     <Save className="w-4 h-4" />
                     <span>{editingRoomId ? 'Update Room' : 'Save Room'}</span>
@@ -539,44 +572,44 @@ export default function HostelManagementPage() {
             </div>
 
             {/* Table Column */}
-            <div className="lg:col-span-8 flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs print:hidden">
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm print:hidden">
                 <div className="relative w-full sm:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search Room, Hostel..."
                     value={roomSearch}
                     onChange={(e) => setRoomSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full pl-11 pr-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white transition-all"
                   />
                 </div>
 
                 {/* Export & Print Toolbar */}
                 <div className="flex items-center space-x-2 text-slate-600 self-end sm:self-auto">
-                  <button onClick={() => handleCopyTable(filteredRooms, 'rooms')} title="Copy Table" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Copy className="w-4 h-4" /></button>
-                  <button onClick={() => handleExportCSV(filteredRooms, 'rooms')} title="Export CSV" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
-                  <button onClick={() => handleExportPDF('Hostel Room List', ['Room Number / Name', 'Hostel', 'Room Type', 'Number Of Bed', 'Cost Per Bed', 'Description'], filteredRooms.map(r => `<tr><td><b>${r.roomNumber}</b></td><td>${r.hostel}</td><td>${r.roomType}</td><td>${r.numberOfBed}</td><td>₹${r.costPerBed}</td><td>${r.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileText className="w-4 h-4 text-rose-600" /></button>
-                  <button onClick={() => handleExportPDF('Hostel Room List', ['Room Number / Name', 'Hostel', 'Room Type', 'Number Of Bed', 'Cost Per Bed', 'Description'], filteredRooms.map(r => `<tr><td><b>${r.roomNumber}</b></td><td>${r.hostel}</td><td>${r.roomType}</td><td>${r.numberOfBed}</td><td>₹${r.costPerBed}</td><td>${r.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Printer className="w-4 h-4 text-indigo-600" /></button>
+                  <button onClick={() => handleCopyTable(filteredRooms, 'rooms')} title="Copy Table" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Copy className="w-4 h-4" /></button>
+                  <button onClick={() => handleExportCSV(filteredRooms, 'rooms')} title="Export CSV" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
+                  <button onClick={() => handleExportPDF('Hostel Room List', ['Room Number / Name', 'Hostel', 'Room Type', 'Number Of Bed', 'Cost Per Bed', 'Description'], filteredRooms.map(r => `<tr><td><b>${r.roomNumber}</b></td><td>${r.hostel}</td><td>${r.roomType}</td><td>${r.numberOfBed}</td><td>₹${r.costPerBed}</td><td>${r.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileText className="w-4 h-4 text-rose-600" /></button>
+                  <button onClick={() => handleExportPDF('Hostel Room List', ['Room Number / Name', 'Hostel', 'Room Type', 'Number Of Bed', 'Cost Per Bed', 'Description'], filteredRooms.map(r => `<tr><td><b>${r.roomNumber}</b></td><td>${r.hostel}</td><td>${r.roomType}</td><td>${r.numberOfBed}</td><td>₹${r.costPerBed}</td><td>${r.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Printer className="w-4 h-4 text-indigo-600" /></button>
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-                  <h3 className="font-bold text-sm text-slate-900 uppercase tracking-wider">Hostel Room List</h3>
-                  <span className="text-xs text-slate-400">Total entries: {filteredRooms.length}</span>
+              <div className="bg-white border border-slate-100 rounded-[28px] shadow-sm overflow-hidden flex flex-col">
+                <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hostel Room List</h3>
+                  <span className="text-xs text-slate-400 font-medium">Total entries: {filteredRooms.length}</span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider bg-slate-50">
-                        <th className="py-3.5 px-4">Room Number / Name</th>
-                        <th className="py-3.5 px-4">Hostel</th>
-                        <th className="py-3.5 px-4">Room Type</th>
-                        <th className="py-3.5 px-4">Number Of Bed</th>
-                        <th className="py-3.5 px-4">Cost Per Bed</th>
-                        <th className="py-3.5 px-4 text-right print:hidden">Action</th>
+                      <tr className="border-b border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50/30">
+                        <th className="py-4 px-6">Room Number / Name</th>
+                        <th className="py-4 px-6">Hostel</th>
+                        <th className="py-4 px-6">Room Type</th>
+                        <th className="py-4 px-6">Number Of Bed</th>
+                        <th className="py-4 px-6">Cost Per Bed</th>
+                        <th className="py-4 px-6 text-right print:hidden">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -586,17 +619,17 @@ export default function HostelManagementPage() {
                         <tr><td colSpan="6" className="py-12 text-center text-slate-400">No rooms found.</td></tr>
                       ) : (
                         filteredRooms.map((r) => (
-                          <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-900">{r.roomNumber}</td>
-                            <td className="py-3.5 px-4 text-slate-700">{r.hostel}</td>
-                            <td className="py-3.5 px-4">
-                              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold text-[11px]">{r.roomType}</span>
+                          <tr key={r.id} className="hover:bg-slate-50/85 transition-colors">
+                            <td className="py-4 px-6 font-bold text-slate-900">{r.roomNumber}</td>
+                            <td className="py-4 px-6 text-slate-700">{r.hostel}</td>
+                            <td className="py-4 px-6">
+                              <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold text-[11px]">{r.roomType}</span>
                             </td>
-                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">{r.numberOfBed}</td>
-                            <td className="py-3.5 px-4 font-mono font-medium text-emerald-600">₹{r.costPerBed}</td>
-                            <td className="py-3.5 px-4 text-right print:hidden flex items-center justify-end space-x-1.5">
-                              <button onClick={() => handleEditRoom(r)} className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteRoom(r.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <td className="py-4 px-6 font-mono font-semibold text-slate-700">{r.numberOfBed}</td>
+                            <td className="py-4 px-6 font-mono font-medium text-emerald-600">₹{r.costPerBed}</td>
+                            <td className="py-4 px-6 text-right print:hidden flex items-center justify-end space-x-2">
+                              <button onClick={() => handleEditRoom(r)} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-full cursor-pointer transition-colors border border-slate-200"><Edit3 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteRoom(r.id)} className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-full cursor-pointer transition-colors border border-rose-100"><Trash2 className="w-3.5 h-3.5" /></button>
                             </td>
                           </tr>
                         ))
@@ -615,8 +648,8 @@ export default function HostelManagementPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Form Column */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs sticky top-6">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="lg:col-span-4 bg-white border border-slate-100 rounded-[28px] p-6 md:p-8 shadow-sm sticky top-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
                 <h2 className="font-bold text-base text-slate-900">
                   {editingHostelId ? 'Edit Hostel' : 'Add Hostel'}
                 </h2>
@@ -633,23 +666,23 @@ export default function HostelManagementPage() {
 
               <form onSubmit={handleSaveHostel} className="space-y-4 text-sm">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Hostel Name *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hostel Name *</label>
                   <input
                     type="text"
                     placeholder="e.g. Boys Hostel 101"
                     value={hostelName}
                     onChange={(e) => setHostelName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Type *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Type *</label>
                   <select
                     value={hostelType}
                     onChange={(e) => setHostelType(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all cursor-pointer"
                   >
                     <option value="Boys">Boys</option>
                     <option value="Girls">Girls</option>
@@ -658,43 +691,44 @@ export default function HostelManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Address</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Address</label>
                   <input
                     type="text"
                     placeholder="e.g. School Campus"
                     value={hostelAddress}
                     onChange={(e) => setHostelAddress(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Intake</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Intake</label>
                   <input
                     type="number"
                     min="0"
                     placeholder="e.g. 200"
                     value={hostelIntake}
                     onChange={(e) => setHostelIntake(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Description</label>
                   <textarea
                     rows="3"
                     placeholder="Optional notes..."
                     value={hostelDescription}
                     onChange={(e) => setHostelDescription(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all resize-none"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="flex items-center space-x-1.5 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 px-6 py-3.5 text-white font-bold rounded-full text-xs transition-all active:scale-[0.99] shadow-sm cursor-pointer"
+                    style={{ backgroundColor: colors.primary }}
                   >
                     <Save className="w-4 h-4" />
                     <span>{editingHostelId ? 'Update Hostel' : 'Save'}</span>
@@ -704,43 +738,43 @@ export default function HostelManagementPage() {
             </div>
 
             {/* Table Column */}
-            <div className="lg:col-span-8 flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs print:hidden">
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm print:hidden">
                 <div className="relative w-full sm:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search Hostel Name..."
                     value={hostelSearch}
                     onChange={(e) => setHostelSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full pl-11 pr-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white transition-all"
                   />
                 </div>
 
                 {/* Export & Print Toolbar */}
                 <div className="flex items-center space-x-2 text-slate-600 self-end sm:self-auto">
-                  <button onClick={() => handleCopyTable(filteredHostels, 'hostels')} title="Copy Table" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Copy className="w-4 h-4" /></button>
-                  <button onClick={() => handleExportCSV(filteredHostels, 'hostels')} title="Export CSV" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
-                  <button onClick={() => handleExportPDF('Hostel List', ['Hostel Name', 'Type', 'Address', 'Intake', 'Description'], filteredHostels.map(h => `<tr><td><b>${h.hostelName}</b></td><td>${h.type}</td><td>${h.address || '-'}</td><td>${h.intake || '0'}</td><td>${h.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileText className="w-4 h-4 text-rose-600" /></button>
-                  <button onClick={() => handleExportPDF('Hostel List', ['Hostel Name', 'Type', 'Address', 'Intake', 'Description'], filteredHostels.map(h => `<tr><td><b>${h.hostelName}</b></td><td>${h.type}</td><td>${h.address || '-'}</td><td>${h.intake || '0'}</td><td>${h.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Printer className="w-4 h-4 text-indigo-600" /></button>
+                  <button onClick={() => handleCopyTable(filteredHostels, 'hostels')} title="Copy Table" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Copy className="w-4 h-4" /></button>
+                  <button onClick={() => handleExportCSV(filteredHostels, 'hostels')} title="Export CSV" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
+                  <button onClick={() => handleExportPDF('Hostel List', ['Hostel Name', 'Type', 'Address', 'Intake', 'Description'], filteredHostels.map(h => `<tr><td><b>${h.hostelName}</b></td><td>${h.type}</td><td>${h.address || '-'}</td><td>${h.intake || '0'}</td><td>${h.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileText className="w-4 h-4 text-rose-600" /></button>
+                  <button onClick={() => handleExportPDF('Hostel List', ['Hostel Name', 'Type', 'Address', 'Intake', 'Description'], filteredHostels.map(h => `<tr><td><b>${h.hostelName}</b></td><td>${h.type}</td><td>${h.address || '-'}</td><td>${h.intake || '0'}</td><td>${h.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Printer className="w-4 h-4 text-indigo-600" /></button>
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-                  <h3 className="font-bold text-sm text-slate-900 uppercase tracking-wider">Hostel List</h3>
-                  <span className="text-xs text-slate-400">Total entries: {filteredHostels.length}</span>
+              <div className="bg-white border border-slate-100 rounded-[28px] shadow-sm overflow-hidden flex flex-col">
+                <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hostel List</h3>
+                  <span className="text-xs text-slate-400 font-medium">Total entries: {filteredHostels.length}</span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider bg-slate-50">
-                        <th className="py-3.5 px-4">Hostel Name</th>
-                        <th className="py-3.5 px-4">Type</th>
-                        <th className="py-3.5 px-4">Address</th>
-                        <th className="py-3.5 px-4">Intake</th>
-                        <th className="py-3.5 px-4 text-right print:hidden">Action</th>
+                      <tr className="border-b border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50/30">
+                        <th className="py-4 px-6">Hostel Name</th>
+                        <th className="py-4 px-6">Type</th>
+                        <th className="py-4 px-6">Address</th>
+                        <th className="py-4 px-6">Intake</th>
+                        <th className="py-4 px-6 text-right print:hidden">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -750,14 +784,14 @@ export default function HostelManagementPage() {
                         <tr><td colSpan="5" className="py-12 text-center text-slate-400">No hostels found.</td></tr>
                       ) : (
                         filteredHostels.map((h) => (
-                          <tr key={h.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-900">{h.hostelName}</td>
-                            <td className="py-3.5 px-4 text-slate-700">{h.type}</td>
-                            <td className="py-3.5 px-4 text-slate-600">{h.address || '-'}</td>
-                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">{h.intake || '0'}</td>
-                            <td className="py-3.5 px-4 text-right print:hidden flex items-center justify-end space-x-1.5">
-                              <button onClick={() => handleEditHostel(h)} className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteHostel(h.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <tr key={h.id} className="hover:bg-slate-50/85 transition-colors">
+                            <td className="py-4 px-6 font-bold text-slate-900">{h.hostelName}</td>
+                            <td className="py-4 px-6 text-slate-700">{h.type}</td>
+                            <td className="py-4 px-6 text-slate-600">{h.address || '-'}</td>
+                            <td className="py-4 px-6 font-mono font-semibold text-slate-700">{h.intake || '0'}</td>
+                            <td className="py-4 px-6 text-right print:hidden flex items-center justify-end space-x-2">
+                              <button onClick={() => handleEditHostel(h)} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-full cursor-pointer transition-colors border border-slate-200"><Edit3 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteHostel(h.id)} className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-full cursor-pointer transition-colors border border-rose-100"><Trash2 className="w-3.5 h-3.5" /></button>
                             </td>
                           </tr>
                         ))
@@ -776,8 +810,8 @@ export default function HostelManagementPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Form Column */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs sticky top-6">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="lg:col-span-4 bg-white border border-slate-100 rounded-[28px] p-6 md:p-8 shadow-sm sticky top-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
                 <h2 className="font-bold text-base text-slate-900">
                   {editingTypeId ? 'Edit Room Type' : 'Add Room Type'}
                 </h2>
@@ -794,32 +828,33 @@ export default function HostelManagementPage() {
 
               <form onSubmit={handleSaveRoomType} className="space-y-4 text-sm">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Room Type *</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Room Type *</label>
                   <input
                     type="text"
                     placeholder="e.g. One Bed"
                     value={typeName}
                     onChange={(e) => setTypeName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Description</label>
                   <textarea
                     rows="3"
                     placeholder="Optional description..."
                     value={typeDescription}
                     onChange={(e) => setTypeDescription(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-5 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl focus:outline-none focus:border-slate-400 focus:bg-white text-sm transition-all resize-none"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="flex items-center space-x-1.5 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+                    className="w-full flex items-center justify-center space-x-2 px-6 py-3.5 text-white font-bold rounded-full text-xs transition-all active:scale-[0.99] shadow-sm cursor-pointer"
+                    style={{ backgroundColor: colors.primary }}
                   >
                     <Save className="w-4 h-4" />
                     <span>{editingTypeId ? 'Update Room Type' : 'Save'}</span>
@@ -829,40 +864,40 @@ export default function HostelManagementPage() {
             </div>
 
             {/* Table Column */}
-            <div className="lg:col-span-8 flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs print:hidden">
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm print:hidden">
                 <div className="relative w-full sm:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search Room Type..."
                     value={roomTypeSearch}
                     onChange={(e) => setRoomTypeSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full pl-11 pr-5 py-3 bg-slate-50/80 border border-slate-200 rounded-full text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white transition-all"
                   />
                 </div>
 
                 {/* Export & Print Toolbar */}
                 <div className="flex items-center space-x-2 text-slate-600 self-end sm:self-auto">
-                  <button onClick={() => handleCopyTable(filteredRoomTypes, 'roomTypes')} title="Copy Table" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Copy className="w-4 h-4" /></button>
-                  <button onClick={() => handleExportCSV(filteredRoomTypes, 'roomTypes')} title="Export CSV" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
-                  <button onClick={() => handleExportPDF('Room Type List', ['Room Type', 'Description'], filteredRoomTypes.map(t => `<tr><td><b>${t.typeName}</b></td><td>${t.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><FileText className="w-4 h-4 text-rose-600" /></button>
-                  <button onClick={() => handleExportPDF('Room Type List', ['Room Type', 'Description'], filteredRoomTypes.map(t => `<tr><td><b>${t.typeName}</b></td><td>${t.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"><Printer className="w-4 h-4 text-indigo-600" /></button>
+                  <button onClick={() => handleCopyTable(filteredRoomTypes, 'roomTypes')} title="Copy Table" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Copy className="w-4 h-4" /></button>
+                  <button onClick={() => handleExportCSV(filteredRoomTypes, 'roomTypes')} title="Export CSV" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></button>
+                  <button onClick={() => handleExportPDF('Room Type List', ['Room Type', 'Description'], filteredRoomTypes.map(t => `<tr><td><b>${t.typeName}</b></td><td>${t.description || '-'}</td></tr>`).join(''))} title="PDF Export & Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><FileText className="w-4 h-4 text-rose-600" /></button>
+                  <button onClick={() => handleExportPDF('Room Type List', ['Room Type', 'Description'], filteredRoomTypes.map(t => `<tr><td><b>${t.typeName}</b></td><td>${t.description || '-'}</td></tr>`).join(''))} title="Print" className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full cursor-pointer transition-colors"><Printer className="w-4 h-4 text-indigo-600" /></button>
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-                  <h3 className="font-bold text-sm text-slate-900 uppercase tracking-wider">Room Type List</h3>
-                  <span className="text-xs text-slate-400">Total entries: {filteredRoomTypes.length}</span>
+              <div className="bg-white border border-slate-100 rounded-[28px] shadow-sm overflow-hidden flex flex-col">
+                <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Room Type List</h3>
+                  <span className="text-xs text-slate-400 font-medium">Total entries: {filteredRoomTypes.length}</span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider bg-slate-50">
-                        <th className="py-3.5 px-4">Room Type</th>
-                        <th className="py-3.5 px-4 text-right print:hidden">Action</th>
+                      <tr className="border-b border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50/30">
+                        <th className="py-4 px-6">Room Type</th>
+                        <th className="py-4 px-6 text-right print:hidden">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -872,11 +907,11 @@ export default function HostelManagementPage() {
                         <tr><td colSpan="2" className="py-12 text-center text-slate-400">No room types found.</td></tr>
                       ) : (
                         filteredRoomTypes.map((t) => (
-                          <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-900">{t.typeName}</td>
-                            <td className="py-3.5 px-4 text-right print:hidden flex items-center justify-end space-x-1.5">
-                              <button onClick={() => handleEditRoomType(t)} className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg cursor-pointer"><Edit3 className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteRoomType(t.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <tr key={t.id} className="hover:bg-slate-50/85 transition-colors">
+                            <td className="py-4 px-6 font-bold text-slate-900">{t.typeName}</td>
+                            <td className="py-4 px-6 text-right print:hidden flex items-center justify-end space-x-2">
+                              <button onClick={() => handleEditRoomType(t)} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-full cursor-pointer transition-colors border border-slate-200"><Edit3 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteRoomType(t.id)} className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-full cursor-pointer transition-colors border border-rose-100"><Trash2 className="w-3.5 h-3.5" /></button>
                             </td>
                           </tr>
                         ))
