@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // This tells the admin app it lives under /admin
+  basePath: '/admin',
+  assetPrefix: '/admin',
+
   experimental: {
     serverActions: {
       bodySizeLimit: '20mb',
