@@ -178,6 +178,8 @@ export default function MVGMainPortal() {
         <StreamsSection />
       </SectionWrapper>
 
+      <MobileAppSection />
+
       {/* 8. GALLERY */}
       <SectionWrapper id="gallery">
         <GallerySection />
@@ -500,9 +502,7 @@ const AboutSection = () => (
         nurturing not just students, but the leaders of tomorrow. Our vibrant campus is a place where creativity
         is celebrated, and every child is given the tools to shine. We welcome you to join our growing family!
       </p>
-      <button className="flex items-center gap-2 text-sm font-medium text-[#142440] border-b-2 border-[#B8892B] pb-1 hover:gap-3.5 transition-all w-fit">
-        Read Welcome Message <ArrowRight size={16} />
-      </button>
+      
     </div>
 
     <div className="rounded-[28px] overflow-hidden shadow-xl border border-[#E4DFD3] relative aspect-[4/5] lg:aspect-square">
@@ -745,6 +745,93 @@ const StreamsSection = () => (
     </div>
   </section>
 );
+/* ------------------------------------------------------------------ */
+/*  SCHOOL MOBILE APP SECTION                                          */
+/* ------------------------------------------------------------------ */
+const MobileAppSection = () => {
+  return (
+    <section className="py-20 md:py-28 px-6 bg-[#FAF8F4] overflow-hidden border-y border-[#E4DFD3]">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-14 items-center">
+        <div>
+          <Eyebrow>Anytime, Anywhere Access</Eyebrow>
+          <h2 className="font-serif-mvg text-4xl md:text-5xl leading-tight mb-6 text-[#142440]">
+            The MVG App in <span className="italic text-[#B8892B]">Your Pocket</span>
+          </h2>
+          <p className="text-[#52607A] leading-relaxed mb-8">
+            Stay connected with real-time updates on attendance, homework, notices, and fee payments. 
+            Designed specifically for parents and students to seamlessly bridge home and school communications.
+          </p>
+
+          <div className="space-y-4 mb-10">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 size={18} className="text-[#B8892B] mt-1 shrink-0" />
+              <p className="text-sm text-[#142440]">Instant push notifications for urgent school announcements and holiday lists.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 size={18} className="text-[#B8892B] mt-1 shrink-0" />
+              <p className="text-sm text-[#142440]">Daily digital homework logs, performance tracking, and report cards.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 size={18} className="text-[#B8892B] mt-1 shrink-0" />
+              <p className="text-sm text-[#142440]">Secure fee management and direct communication channels with teachers.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.school.mvg"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#142440] text-white px-7 py-3.5 rounded-xl font-medium text-xs flex items-center gap-3 hover:bg-[#0D1830] transition-colors shadow-lg"
+            >
+              <Smartphone size={16} /> Download for Android
+            </a>
+          </div>
+        </div>
+
+        {/* DUAL PREMIUM MOBILE DEVICE MOCKUP */}
+        <div className="relative flex justify-center items-center py-6">
+          {/* Background Ambient Glow */}
+          <div className="absolute w-72 h-72 bg-[#B8892B]/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Primary / Front Phone Frame */}
+          <div className="relative w-[260px] h-[530px] bg-[#142440] rounded-[42px] p-3 shadow-2xl border-4 border-[#E4DFD3] z-10 transform -rotate-2 hover:rotate-0 transition-transform duration-500">
+            {/* Phone Speaker Notch */}
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 w-28 h-4 bg-[#142440] rounded-full z-20" />
+            
+            {/* Screen Viewport */}
+            <div className="relative w-full h-full rounded-[32px] overflow-hidden bg-white shadow-inner">
+              <Image
+                src="https://res.cloudinary.com/db6ssceun/image/upload/v1787398108/Screenshot_2026-08-22-16-55-41-967_com.school.mvg.jpg_ffspkr.jpg"
+                alt="MVG Mobile App Preview 1"
+                fill
+                className="object-cover"
+                sizes="260px"
+              />
+            </div>
+          </div>
+
+          {/* Secondary / Offset Phone Frame for Dynamic Duo Look */}
+          <div className="absolute hidden sm:block w-[240px] h-[490px] bg-[#142440]/90 rounded-[40px] p-2.5 shadow-xl border-4 border-[#E4DFD3]/80 translate-x-32 translate-y-6 rotate-6 hover:rotate-0 transition-transform duration-500 opacity-90">
+            {/* Speaker Notch */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-3.5 bg-[#142440] rounded-full z-20" />
+            
+            {/* Screen Viewport */}
+            <div className="relative w-full h-full rounded-[30px] overflow-hidden bg-white">
+              <Image
+                src="https://res.cloudinary.com/db6ssceun/image/upload/v1787398108/Screenshot_2026-08-22-16-55-30-011_com.school.mvg.jpg_nyndmk.jpg"
+                alt="MVG Mobile App Preview 2"
+                fill
+                className="object-cover"
+                sizes="240px"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /*  GALLERY                                                             */

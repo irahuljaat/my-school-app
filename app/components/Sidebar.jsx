@@ -5,35 +5,38 @@ import Link from 'next/link';
 import { 
   HiOutlineAcademicCap, HiOutlineClipboardList, HiOutlineHome, 
   HiOutlineUserGroup, HiOutlineCurrencyDollar, HiX,
-  HiOutlineBell, HiOutlineCog,
-  HiBookOpen, HiChevronRight
+  HiOutlineBell, HiOutlineCog, HiOutlineBookOpen, HiChevronRight,
+  HiOutlineCalendar, HiOutlineDocumentText, HiOutlineTruck, HiOutlineChatAlt2, HiOutlineIdentification,
+  HiOutlinePrinter, HiOutlineOfficeBuilding, HiOutlineShieldCheck, HiOutlineSparkles
 } from 'react-icons/hi';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { useColors } from '../components/ColorComponent';
 
 const NAV_CONFIG = [
   { section: 'CORE CENTER', items: [
     { name: 'Dashboard', icon: HiOutlineHome, path: '/dashboard' },
-    { name: 'Students', icon: HiOutlineAcademicCap, path: '/students' },
-    { name: 'Teachers', icon: HiOutlineUserGroup, path: '/teacher-manage' },
-    { name: 'Time Table', icon: HiOutlineUserGroup, path: '/time-table' },
-    { name: 'Syllabus', icon: HiOutlineUserGroup, path: '/syllabus-manager' },
+    { name: 'Students', icon: HiOutlineUserGroup, path: '/students' },
+    { name: 'Teachers', icon: HiOutlineAcademicCap, path: '/teacher-manage' },
+    { name: 'Time Table', icon: HiOutlineCalendar, path: '/time-table' },
+    { name: 'Syllabus', icon: HiOutlineDocumentText, path: '/syllabus-manager' },
     { name: 'Attendance', icon: HiOutlineClipboardList, path: '/attendance' },
-    { name: 'Vehicle', icon: HiOutlineClipboardList, path: '/route-management' },
-    { name: 'Enquiries', icon: HiOutlineClipboardList, path: '/enquiries' },
-    { name: 'Admissions', icon: HiOutlineClipboardList, path: '/Adenquiry' },
-    { name: 'Post Maker', icon: HiOutlineClipboardList, path: '/posts' },
+    { name: 'Behavioral Records', icon: HiOutlineShieldCheck, path: '/behaviour' },
+    { name: 'Vehicle', icon: HiOutlineTruck, path: '/route-management' },
+    { name: 'Enquiries', icon: HiOutlineChatAlt2, path: '/enquiries' },
+    { name: 'Admissions', icon: HiOutlineDocumentText, path: '/Adenquiry' },
+    { name: 'Post Maker', icon: HiOutlineSparkles, path: '/posts' },
     { 
       name: 'Library', 
-      icon: HiBookOpen, 
+      icon: HiOutlineBookOpen, 
       path: '/library',
       subMenus: [
         { name: 'Books List', path: '/library' },
         { name: 'Issued Books', path: '/library/issue' },
-        
       ]
     },
-    { name: 'Paper Maker', icon: HiOutlineClipboardList, path: '/papers' },
-    { name: 'Hostel', icon: HiOutlineClipboardList, path: '/hostel' },
+    { name: "ID Cards Export", path: "/id-cards", icon: HiOutlineIdentification},
+    { name: 'Paper Maker', icon: HiOutlinePrinter, path: '/papers' },
+    { name: 'Hostel', icon: HiOutlineOfficeBuilding, path: '/hostel' },
     { name: 'Fee Collection', icon: HiOutlineCurrencyDollar, path: '/fees-system' },
     { name: 'School Expenses', icon: HiOutlineCurrencyDollar, path: '/school-expenses' },
     { name: 'Exam Management', icon: HiOutlineClipboardList, path: '/exam-manage' },
@@ -43,6 +46,9 @@ const NAV_CONFIG = [
 ];
 
 const NavItem = memo(({ name, icon: Icon, path, isActive, onClick, subMenus, activePath }) => {
+  const colors = useColors();
+  const primaryColor = colors.primary || '#ffc107';
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const hasSubMenus = subMenus && subMenus.length > 0;
   const isSubActive = hasSubMenus && subMenus.some(sub => sub.path === activePath);
@@ -50,9 +56,9 @@ const NavItem = memo(({ name, icon: Icon, path, isActive, onClick, subMenus, act
   return (
     <div className="relative">
       <Link 
-        href={hasSubMenus ? '#' : path}
-        onClick={(e) => {
-          if (hasSubMenus) {
+    href={hasSubMenus ? '#' : (path || '#')}  // Added (path || '#') fallback
+    onClick={(e) => {
+        if (hasSubMenus) {
             e.preventDefault();
             setIsExpanded(!isExpanded);
           } else {
@@ -61,26 +67,33 @@ const NavItem = memo(({ name, icon: Icon, path, isActive, onClick, subMenus, act
         }}
         className="relative flex items-center px-4 py-1 transition-colors group"
       >
-        {/* Yellow Active Vertical Indicator */}
+        {/* Active Vertical Indicator */}
         {(isActive || isSubActive) && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-[#ffc107] rounded-r-md" />
+          <div 
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-r-md" 
+            style={{ backgroundColor: primaryColor }}
+          />
         )}
         
         {/* Pill Background with Distinct Active State */}
         <div className={`flex items-center justify-between w-full px-4 py-3 rounded-[16px] text-sm font-medium transition-all ${
           (isActive || isSubActive) 
             ? 'bg-slate-900 text-white font-bold shadow-md' 
-            : 'text-slate-600 hover:bg-amber-50/60 hover:text-slate-900'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`}>
           <div className="flex items-center">
             <Icon 
-              className={`w-5 h-5 mr-3 transition-colors ${(isActive || isSubActive) ? 'text-[#ffc107]' : 'text-slate-400 group-hover:text-amber-500'}`} 
+              className={`w-5 h-5 mr-3 transition-colors`}
+              style={{ color: (isActive || isSubActive) ? primaryColor : undefined }}
               strokeWidth={2} 
             />
-            {name}
+            <span className={!(isActive || isSubActive) ? 'text-slate-500 group-hover:text-slate-900' : ''}>{name}</span>
           </div>
           {hasSubMenus && (
-            <HiChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90 text-[#ffc107]' : 'text-slate-400'}`} />
+            <HiChevronRight 
+              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : 'text-slate-400'}`} 
+              style={{ color: isExpanded ? primaryColor : undefined }}
+            />
           )}
         </div>
       </Link>
@@ -97,9 +110,10 @@ const NavItem = memo(({ name, icon: Icon, path, isActive, onClick, subMenus, act
                 onClick={onClick}
                 className={`block py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
                   isSubItemActive 
-                    ? 'text-slate-900 font-bold bg-[#ffc107]' 
+                    ? 'text-slate-900 font-bold' 
                     : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                 }`}
+                style={{ backgroundColor: isSubItemActive ? primaryColor : undefined }}
               >
                 {sub.name}
               </Link>
@@ -114,6 +128,9 @@ const NavItem = memo(({ name, icon: Icon, path, isActive, onClick, subMenus, act
 NavItem.displayName = 'NavItem';
 
 export default function Sidebar({ activePath, isOpen, onClose }) {
+  const colors = useColors();
+  const primaryColor = colors.primary || '#ffc107';
+
   const [schoolDetails, setSchoolDetails] = useState({
     schoolName: 'EDMIRO',
     schoolAddress: 'Smarter Schools. Better Future.',
@@ -157,8 +174,11 @@ export default function Sidebar({ activePath, isOpen, onClose }) {
             {schoolDetails.logoUrl ? (
               <img src={schoolDetails.logoUrl} alt="School Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-[#ffc107] flex items-center justify-center text-slate-900 shadow-md">
-                <HiBookOpen size={22} />
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-900 shadow-md"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <HiOutlineBookOpen size={22} />
               </div>
             )}
             <div>
@@ -197,7 +217,10 @@ export default function Sidebar({ activePath, isOpen, onClose }) {
               <p className="text-[10px] font-bold text-amber-700/70 uppercase tracking-wider">Current Session</p>
               <p className="text-sm font-bold text-slate-900">2025 - 2026</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-[#ffc107] flex items-center justify-center text-slate-900 shadow-sm">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-900 shadow-sm"
+              style={{ backgroundColor: primaryColor }}
+            >
               <HiOutlineClipboardList size={16} />
             </div>
           </div>

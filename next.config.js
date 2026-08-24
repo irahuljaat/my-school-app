@@ -5,7 +5,7 @@ const nextConfig = {
   // 1. Increase the limit for PDF uploads
   experimental: {
     serverActions: {
-      bodySizeLimit: '20mb', // Increased to 20MB for multiple PDFs
+      bodySizeLimit: '20mb',
     },
   },
 
@@ -28,6 +28,20 @@ const nextConfig = {
       };
     }
     return config;
+  },
+
+  // 4. Proxy /admin requests to your deployed Admin Panel project
+  async rewrites() {
+    return [
+      {
+        source: '/admin',
+        destination: 'https://your-admin-panel-deployment-url.vercel.app/admin',
+      },
+      {
+        source: '/admin/:path*',
+        destination: 'https://your-admin-panel-deployment-url.vercel.app/admin/:path*',
+      },
+    ];
   },
 };
 
