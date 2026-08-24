@@ -32,11 +32,11 @@ const nextConfig = {
     return [
       {
         source: '/admin',
-        destination: 'https://mvg-admin-ten.vercel.app/',
+        destination: 'https://mvg-admin-ten.vercel.app/admin',
       },
       {
         source: '/admin/:path*',
-        destination: 'https://mvg-admin-ten.vercel.app/:path*',
+        destination: 'https://mvg-admin-ten.vercel.app/admin/:path*',
       },
     ];
   },
