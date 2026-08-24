@@ -2,14 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // 1. Increase the limit for PDF uploads
   experimental: {
     serverActions: {
       bodySizeLimit: '20mb',
     },
   },
 
-  // 2. Keep your existing image configurations
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '**' },
@@ -19,7 +17,6 @@ const nextConfig = {
     ],
   },
 
-  // 3. Fix the pdf-parse 'fs' dependency error
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -30,16 +27,16 @@ const nextConfig = {
     return config;
   },
 
-  // 4. Proxy /admin requests to your deployed Admin Panel project
+  // Add this rewrites section:
   async rewrites() {
     return [
       {
         source: '/admin',
-        destination: 'https://your-admin-panel-deployment-url.vercel.app/admin',
+        destination: 'https://mvg-admin-ten.vercel.app/',
       },
       {
         source: '/admin/:path*',
-        destination: 'https://your-admin-panel-deployment-url.vercel.app/admin/:path*',
+        destination: 'https://mvg-admin-ten.vercel.app/:path*',
       },
     ];
   },
