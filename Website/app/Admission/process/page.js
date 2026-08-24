@@ -1,10 +1,10 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { db } from '../../../firebase/config'; 
+import { db } from '../../firebase/config'; 
 import { doc, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import LogoImg from '../../../images/logo.jpg';
+import LogoImg from '../../images/logo.jpg';
 import { 
   Menu, X, Facebook, Instagram, ChevronDown, 
   Phone, Mail, MapPin, ClipboardList, Users, 
