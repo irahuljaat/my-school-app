@@ -1,0 +1,7 @@
+{
+  "name": "my-nextjs-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "cd website && npm install && npm run build && cd ../admin-panel && npm install && npm run build"
+  }
+}

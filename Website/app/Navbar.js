@@ -1,0 +1,162 @@
+'use client';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase/config';
+import Link from 'next/link';
+
+import { doc, onSnapshot, getDocs, collection, query, orderBy, limit, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ChevronDown, Menu, X, Phone, Mail, MapPin, ArrowRight, CheckCircle, Briefcase, CheckCircle2, FileDown, Navigation,
+  GraduationCap, Users, BookOpen, Trophy, Calendar, Download, ChevronLeft, ChevronRight, Instagram, Facebook, Twitter, Youtube,
+  Beaker, Star, ShieldCheck, Smartphone, MessageCircle, FileText, Camera, Globe, Compass
+} from 'lucide-react';
+
+const Navbar = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Updated Menu Data with Links
+  const menus = [
+    { title: 'Home', href: '/', items: null },
+    { 
+      title: 'About Us', 
+      href: '/About', 
+      items: [
+        { name: 'About MVG', slug: '/about/mvg' },
+        { name: 'Vision & Mission', slug: '/about/vision-mission' },
+        { name: 'School Philosophy', slug: '/about/philosophy' },
+        { name: "Director's Message", slug: '/about/director-message' }
+      ] 
+    },
+    { 
+      title: 'Academics', 
+      href: '/academics', 
+      items: [
+        { name: 'Curriculum', slug: '/academics/curriculum' },
+        { name: 'Admission', slug: '/academics/admission' },
+        { name: 'Fees', slug: '/academics/fees' },
+        { name: 'Activity Calendar', slug: '/academics/calendar' }
+      ] 
+    },
+    { 
+      title: 'Achievements', 
+      href: '/achievements', 
+      items: [
+        { name: 'Awards', slug: '/achievements/awards' },
+        { name: 'Board Results', slug: '/achievements/results' }
+      ] 
+    },
+    { title: 'Facilities', href: '/facilities', items: null },
+    { title: 'Event & Gallery', href: '/gallery', items: null },
+    { title: 'Contact', href: '/contact', items: null },
+    { title: 'Blog', href: '/blog', items: null },
+  ];
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : 'unset';
+  }, [isMobileMenuOpen]);
+
+  return (
+    <>
+      <nav className={`fixed top-0 left-0 w-full z-[1000] transition-all duration-300 
+        ${isScrolled ? 'bg-white shadow-xl py-3' : 'bg-slate-900 xl:bg-transparent py-4 xl:py-6'}`}>
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between">
+            
+            <Link href="/" className="flex items-center gap-3 shrink-0 cursor-pointer">
+              <div className="w-10 h-10 bg-white rounded-xl overflow-hidden shadow-md border border-slate-200">
+                <img src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" alt="Logo" className="w-full h-full object-contain p-1" />
+              </div>
+              <span className={`font-black uppercase tracking-widest whitespace-nowrap transition-all ${isScrolled ? 'text-blue-600 text-lg' : 'text-white text-lg md:text-2xl'}`}>
+                MVG <span className={isScrolled ? 'text-slate-900' : 'text-blue-400'}>Public School</span>
+              </span>
+            </Link>
+
+            <div className="hidden xl:flex items-center gap-1">
+              {menus.map((m) => (
+                <div key={m.title} className="relative group px-2" onMouseEnter={() => setActiveMenu(m.title)} onMouseLeave={() => setActiveMenu(null)}>
+                  <Link href={m.href} className={`flex items-center gap-1 text-[11px] font-black uppercase tracking transition-colors whitespace-nowrap py-2 ${isScrolled ? 'text-slate-700 hover:text-blue-600' : 'text-white/90 hover:text-white'}`}>
+                    {m.title} {m.items && <ChevronDown size={12} className="opacity-50" />}
+                  </Link>
+                  
+                  <AnimatePresence>
+                    {m.items && activeMenu === m.title && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 w-56 bg-white rounded-2xl shadow-2xl p-3 border border-slate-100 mt-2">
+                        {m.items.map(i => (
+                          <Link key={i.name} href={i.slug} className="block px-4 py-2.5 text-[11px] font-bold uppercase tracking hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all">
+                            {i.name}
+                          </Link>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setIsMobileMenuOpen(true)} className={`xl:hidden p-2.5 rounded-xl border transition-all cursor-pointer ${isScrolled ? 'bg-slate-100 border-slate-200 text-slate-900' : 'bg-white/10 border-white/20 text-white'}`}>
+              <Menu size={24} />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* MOBILE DRAWER */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }} onClick={(e) => e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-white shadow-2xl p-6 flex flex-col">
+              
+              <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <img src="https://res.cloudinary.com/db6ssceun/image/upload/v1771071585/SCHOOL_SENIOR_SECONDARY_LOGO_t88t8l.png" className="w-8 h-8 object-contain" alt="logo" />
+                  <span className="font-black text-blue-600 text-lg">MVG PUBLIC</span>
+                </div>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full text-slate-900"><X size={20} /></button>
+              </div>
+
+              <div className="flex flex-col gap-1 overflow-y-auto pr-2">
+                {menus.map((m) => (
+                  <div key={m.title} className="mb-2">
+                    <Link href={m.href} onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-black tracking-tighter text-slate-800 flex items-center justify-between w-full uppercase italic py-3">
+                      {m.title}
+                      {m.items && <ChevronDown size={18} className="text-blue-600 opacity-50" />}
+                    </Link>
+                    {m.items && (
+                      <div className="grid grid-cols-1 gap-1 pl-4 mb-4 border-l-2 border-blue-50">
+                        {m.items.map(item => (
+                          <Link key={item.name} href={item.slug} onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-bold text-slate-400 py-2 hover:text-blue-600">
+                            {item.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-auto pt-8 border-t border-slate-100">
+                <Link href="/portal" onClick={() => setIsMobileMenuOpen(false)}>
+                    <button className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 mb-4">
+                    Student Portal
+                    </button>
+                </Link>
+                <div className="text-[10px] text-center font-bold text-slate-400 uppercase tracking-widest">Jaipur • Since 2005</div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// CRITICAL: This was the missing line!
+export default Navbar;
