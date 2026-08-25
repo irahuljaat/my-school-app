@@ -9,7 +9,8 @@ import {
     HiOutlinePaperAirplane, HiSearch, HiOutlineDesktopComputer,
     HiOutlineBell, HiX, HiOutlineCloudUpload, HiUser, HiIdentification,
     HiCheckCircle, HiExclamationCircle, HiOutlineRefresh, HiOutlineLightningBolt,
-    HiOutlineUserGroup, HiOutlineAcademicCap, HiOutlineChat, HiOutlineInformationCircle
+    HiOutlineUserGroup, HiOutlineAcademicCap, HiOutlineChat, HiOutlineInformationCircle,
+    HiOutlineClock
 } from 'react-icons/hi';
 import { useColors } from '../components/ColorComponent';
 
@@ -51,6 +52,8 @@ function StatCard({ label, value, sub, colorClass }) {
 function StatusBadge({ status }) {
     if (status === 'sent')
         return <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full uppercase tracking-wide">Sent</span>;
+    if (status === 'scheduled')
+        return <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full uppercase tracking-wide">Scheduled</span>;
     if (status === 'sent_no_tokens')
         return <span className="text-[8px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full uppercase tracking-wide">No Devices</span>;
     if (status === 'failed')
@@ -75,6 +78,11 @@ export default function NotifyPage() {
     const [uploading, setUploading]         = useState(false);
     const [history, setHistory]             = useState([]);
     const [toast, setToast]                 = useState(null);
+
+    // Scheduling States
+    const [isScheduled, setIsScheduled]     = useState(false);
+    const [scheduleDate, setScheduleDate]   = useState('');
+    const [scheduleTime, setScheduleTime]   = useState('');
 
     const [teachers, setTeachers]                   = useState([]);
     const [grades, setGrades]                       = useState([]);
@@ -236,37 +244,46 @@ export default function NotifyPage() {
         if (!activeSession)                          return toast$("Session not loaded yet", "error");
         if (target === 'single' && !selectedStudent) return toast$("Select a student first", "error");
         if (target === 'class' && !payload.targetId) return toast$("Select a class first", "error");
+        if (isScheduled && (!scheduleDate || !scheduleTime)) return toast$("Please select both schedule date and time", "error");
 
         setSending(true);
         try {
-            const tokens = await resolveTokens();
+            let result = { success: 0, failure: 0, staleTokens: [] };
+            let fcmStatus = 'sent';
 
-            if (tokens.length === 0) {
-                toast$("No active devices found for this audience", "error");
-                setSending(false);
-                return;
+            if (isScheduled) {
+                fcmStatus = 'scheduled';
+            } else {
+                const tokens = await resolveTokens();
+
+                if (tokens.length === 0) {
+                    toast$("No active devices found for this audience", "error");
+                    setSending(false);
+                    return;
+                }
+
+                const apiRes = await fetch('/api/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tokens,
+                        title:       payload.title,
+                        body:        payload.body,
+                        imageUrl:    payload.imageUrl || '',
+                        targetGroup: target,
+                        targetId:    payload.targetId,
+                        targetName:  payload.targetName,
+                    }),
+                });
+
+                result = await apiRes.json();
+                if (!apiRes.ok) throw new Error(result.error || "API request failed");
+                fcmStatus = result.failure === tokens.length ? 'failed' : 'sent';
             }
 
-            const apiRes = await fetch('/api/send-notification', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tokens,
-                    title:       payload.title,
-                    body:        payload.body,
-                    imageUrl:    payload.imageUrl || '',
-                    targetGroup: target,
-                    targetId:    payload.targetId,
-                    targetName:  payload.targetName,
-                }),
-            });
-
-            const result = await apiRes.json();
-
-            if (!apiRes.ok) throw new Error(result.error || "API request failed");
-
+            // Updated customId for whole school as requested: document ID "WholeSchool"
             const customId =
-                target === 'all'      ? 'S0000_1_WholeSchool' :
+                target === 'all'      ? 'WholeSchool' :
                 target === 'teachers' ? `T_${payload.targetId}` :
                 payload.targetId      || 'General';
 
@@ -275,47 +292,55 @@ export default function NotifyPage() {
             const timestampKey = String(now.getTime());
             const timeString   = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+            const noticeData = {
+                title:        payload.title,
+                body:         payload.body,
+                imageUrl:     payload.imageUrl || "",
+                targetGroup:  target,
+                targetId:     payload.targetId,
+                targetName:   payload.targetName,
+                fcmStatus:    fcmStatus,
+                successCount: isScheduled ? 0 : result.success,
+                failureCount: isScheduled ? 0 : result.failure,
+                createdAt:    timeString,
+                timestamp:    Number(timestampKey),
+            };
+
+            if (isScheduled) {
+                noticeData.scheduledFor = `${scheduleDate} ${scheduleTime}`;
+            }
+
             await setDoc(
                 doc(db, "sessions", activeSession, "notices", customId),
                 {
                     [dateField]: {
-                        [timestampKey]: {
-                            title:        payload.title,
-                            body:         payload.body,
-                            imageUrl:     payload.imageUrl || "",
-                            targetGroup:  target,
-                            targetId:     payload.targetId,
-                            targetName:   payload.targetName,
-                            fcmStatus:    result.failure === tokens.length ? 'failed' : 'sent',
-                            successCount: result.success,
-                            failureCount: result.failure,
-                            createdAt:    timeString,
-                            timestamp:    Number(timestampKey),
-                        }
+                        [timestampKey]: noticeData
                     }
                 },
                 { merge: true }
             );
 
-            if (result.staleTokens?.length) {
+            if (!isScheduled && result.staleTokens?.length) {
                 cleanStaleTokens(result.staleTokens).catch(console.warn);
             }
 
-            if (result.failure === 0) {
+            if (isScheduled) {
+                toast$(`Notice successfully scheduled for ${scheduleDate} at ${scheduleTime}`, "success");
+            } else if (result.failure === 0) {
                 toast$(`✓ Sent to ${result.success} device${result.success !== 1 ? 's' : ''}`, "success");
             } else {
                 toast$(`Sent: ${result.success} ✓  Failed: ${result.failure} ✗`, result.success > 0 ? "info" : "error");
             }
 
-            setStats(s => ({ ...s, sent: s.sent + 1 }));
+            setStats(s => ({ ...s, sent: isScheduled ? s.sent : s.sent + 1 }));
             setHistory(prev => [{
                 id: timestampKey,
                 title:        payload.title,
                 body:         payload.body,
                 targetName:   payload.targetName,
-                fcmStatus:    result.failure === tokens.length ? 'failed' : 'sent',
-                successCount: result.success,
-                failureCount: result.failure,
+                fcmStatus:    fcmStatus,
+                successCount: isScheduled ? 0 : result.success,
+                failureCount: isScheduled ? 0 : result.failure,
                 createdAt:    timeString,
                 timestamp:    Number(timestampKey),
             }, ...prev].slice(0, 10));
@@ -324,6 +349,9 @@ export default function NotifyPage() {
             setSelectedStudent(null);
             setSearchQuery('');
             setTarget('all');
+            setIsScheduled(false);
+            setScheduleDate('');
+            setScheduleTime('');
 
         } catch (err) {
             console.error(err);
@@ -404,7 +432,7 @@ export default function NotifyPage() {
                         >
                             <div className="px-8 pt-8 pb-6 border-b border-slate-100">
                                 <h2 className="text-base font-black text-slate-800 uppercase tracking-tight">Compose Notice</h2>
-                                <p className="text-xs text-slate-400 font-medium mt-1">Choose audience → write message → dispatch</p>
+                                <p className="text-xs text-slate-400 font-medium mt-1">Choose audience → write message → dispatch or schedule</p>
                             </div>
 
                             <div className="px-8 py-6 space-y-6 flex-1">
@@ -438,7 +466,7 @@ export default function NotifyPage() {
                                         <div className="flex items-center gap-3 px-5 py-4 bg-indigo-50 border border-indigo-100 rounded-[24px] animate-fadein">
                                             <HiOutlineLightningBolt className="text-indigo-500 text-lg shrink-0" />
                                             <div>
-                                                <p className="text-xs font-black text-indigo-700">All {stats.students} students</p>
+                                                <p className="text-xs font-black text-indigo-700">All {stats.students} students (Saved to WholeSchool)</p>
                                                 <p className="text-[10px] text-indigo-400 font-medium">{stats.devices} active devices will receive this</p>
                                             </div>
                                         </div>
@@ -579,6 +607,50 @@ export default function NotifyPage() {
                                     </div>
                                 </div>
 
+                                {/* Schedule Message Option */}
+                                <div className="p-5 bg-slate-50 border border-slate-200 rounded-[24px] space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <HiOutlineClock className="text-slate-500 text-base" />
+                                            <span className="text-[10px] font-black uppercase text-slate-700 tracking-widest">Schedule for Later</span>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={isScheduled}
+                                                onChange={e => setIsScheduled(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+
+                                    {isScheduled && (
+                                        <div className="grid grid-cols-2 gap-3 pt-2 animate-fadein">
+                                            <div>
+                                                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={scheduleDate}
+                                                    onChange={e => setScheduleDate(e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400"
+                                                    required={isScheduled}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">Time</label>
+                                                <input
+                                                    type="time"
+                                                    value={scheduleTime}
+                                                    onChange={e => setScheduleTime(e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400"
+                                                    required={isScheduled}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Image upload */}
                                 <div>
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Image (optional)</label>
@@ -601,7 +673,7 @@ export default function NotifyPage() {
                                     )}
                                 </div>
 
-                                {/* Send button */}
+                                {/* Send / Schedule button */}
                                 <button
                                     type="submit"
                                     disabled={sending || uploading}
@@ -609,8 +681,10 @@ export default function NotifyPage() {
                                     style={{ backgroundColor: colors.primary }}
                                 >
                                     {sending
-                                        ? <><HiOutlineRefresh className="animate-spin text-sm" />Sending…</>
-                                        : <><HiOutlinePaperAirplane className="-rotate-45 text-sm" />Dispatch</>
+                                        ? <><HiOutlineRefresh className="animate-spin text-sm" />Processing…</>
+                                        : isScheduled
+                                            ? <><HiOutlineClock className="text-sm" />Schedule Notice</>
+                                            : <><HiOutlinePaperAirplane className="-rotate-45 text-sm" />Dispatch Now</>
                                     }
                                 </button>
                             </div>
@@ -640,9 +714,16 @@ export default function NotifyPage() {
                                     <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-3">
                                         {payload.body || <span className="italic">Message body…</span>}
                                     </p>
-                                    <div className="pt-2.5 border-t border-white/10 flex items-center gap-1.5">
-                                        <span className="text-[9px] font-black text-indigo-400 uppercase">→</span>
-                                        <span className="text-[9px] font-bold text-slate-400">{payload.targetName || 'No audience selected'}</span>
+                                    <div className="pt-2.5 border-t border-white/10 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[9px] font-black text-indigo-400 uppercase">→</span>
+                                            <span className="text-[9px] font-bold text-slate-400">{payload.targetName || 'No audience selected'}</span>
+                                        </div>
+                                        {isScheduled && scheduleDate && scheduleTime && (
+                                            <span className="text-[8px] font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
+                                                🕒 {scheduleDate} {scheduleTime}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -667,7 +748,10 @@ export default function NotifyPage() {
                                                     <p className="text-[10px] text-slate-400 mt-0.5 truncate font-medium">{h.body}</p>
                                                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                                                         <span className="text-[9px] font-bold text-slate-500">→ {h.targetName}</span>
-                                                        {h.successCount != null && (
+                                                        {h.scheduledFor && (
+                                                            <span className="text-[9px] font-bold text-indigo-600">🕒 {h.scheduledFor}</span>
+                                                        )}
+                                                        {h.successCount != null && h.successCount > 0 && (
                                                             <span className="text-[9px] font-bold text-emerald-600">✓ {h.successCount}</span>
                                                         )}
                                                         {h.failureCount > 0 && (

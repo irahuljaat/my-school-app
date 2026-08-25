@@ -11,10 +11,8 @@ import {
   Download, 
   Award, 
   User, 
-  Calendar, 
   FileText,
-  X,
-  Check
+  X 
 } from 'lucide-react';
 import { db } from '../firebase/config';
 import { 
@@ -22,7 +20,9 @@ import {
   getDoc, 
   collection, 
   getDocs, 
-  setDoc 
+  adddoc,
+  setDoc,
+  serverTimestamp 
 } from 'firebase/firestore';
 
 export default function BehaviorManagementPage() {
@@ -31,7 +31,7 @@ export default function BehaviorManagementPage() {
 
   // Data states
   const [studentsList, setStudentsList] = useState([]);
-  const [behaviorRecordsMap, setBehaviorRecordsMap] = useState({}); // date -> records object
+  const [incidentsList, setIncidentsList] = useState([]); // Flat array of all incident docs
   
   // UI states
   const [selectedStudentId, setSelectedStudentId] = useState('');
@@ -47,7 +47,7 @@ export default function BehaviorManagementPage() {
   const [targetStudentId, setTargetStudentId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
- // ── 1. Fetch Active Session, Students, and Behavior Data ──
+  // ── 1. Fetch Active Session, Students, and Behavior Incidents ──
   async function loadData() {
     try {
       setLoading(true);
@@ -62,7 +62,7 @@ export default function BehaviorManagementPage() {
 
       const sessionPath = `sessions/${currentActiveSession}`;
 
-      // Fetch all students from the main 'students' collection or session students collection
+      // Fetch all students
       let students = [];
       const studentsRef = collection(db, sessionPath, 'students');
       const studentsSnap = await getDocs(studentsRef);
@@ -73,7 +73,6 @@ export default function BehaviorManagementPage() {
           ...d.data()
         }));
       } else {
-        // Fallback to feePayments if the students collection is empty in this session path
         const feeRef = collection(db, sessionPath, 'feePayments');
         const feeSnap = await getDocs(feeRef);
         students = feeSnap.docs.map(d => ({
@@ -88,14 +87,15 @@ export default function BehaviorManagementPage() {
         setTargetStudentId(students[0].studentId);
       }
 
-      // Fetch Behavior Collection
-      const behaviorRef = collection(db, sessionPath, 'behavior');
-      const behaviorSnap = await getDocs(behaviorRef);
-      const bMap = {};
-      behaviorSnap.docs.forEach(docSnap => {
-        bMap[docSnap.id] = docSnap.data().records || {};
-      });
-      setBehaviorRecordsMap(bMap);
+      // Fetch Behavioral Incidents Collection directly
+      const incidentsRef = collection(db, sessionPath, 'behavioral_incidents');
+      const incidentsSnap = await getDocs(incidentsRef);
+      const fetchedIncidents = incidentsSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      
+      setIncidentsList(fetchedIncidents);
 
     } catch (err) {
       console.error('Error loading behavior management data:', err);
@@ -108,40 +108,42 @@ export default function BehaviorManagementPage() {
     loadData();
   }, []);
 
-  // ── 2. Handle Logging Incident ──
+  // ── 2. Handle Logging Incident (Saving as separate document) ──
   const handleSaveIncident = async (e) => {
     e.preventDefault();
-    if (!targetStudentId || !incidentDescription.trim()) {
-      alert('Please select a student and provide an incident description.');
+    if (!targetStudentId) {
+      alert('Please select a student.');
       return;
     }
 
     try {
       setLoading(true);
       const sessionPath = `sessions/${activeSession}`;
-      const docRef = doc(db, sessionPath, 'behavior', incidentDate);
+      const incidentsRef = collection(db, sessionPath, 'behavioral_incidents');
 
-      // Fetch existing records for this date if any
-      const existingDoc = behaviorRecordsMap[incidentDate] || {};
+      // Find student name to save redundant copy for quick UI rendering
+      const targetStudent = studentsList.find(s => s.studentId === targetStudentId);
+      const studentName = targetStudent?.name || targetStudent?.studentName || 'Unknown Student';
 
-      const updatedRecords = {
-        ...existingDoc,
-        [targetStudentId]: {
-          type: incidentType,
-          severity: severity,
-          description: incidentDescription.trim(),
-          loggedAt: new Date().toLocaleTimeString()
-        }
+      const newIncidentData = {
+        studentId: targetStudentId,
+        studentName: studentName,
+        date: incidentDate,
+        type: incidentType,
+        severity: severity,
+        description: incidentDescription.trim(),
+        loggedAt: new Date().toLocaleTimeString(),
+        timestamp: serverTimestamp()
       };
 
-      // Save to Firestore
-      await setDoc(docRef, { records: updatedRecords }, { merge: true });
+      // Add new document to behavioral_incidents collection
+      const docRef = await addDoc(incidentsRef, newIncidentData);
 
-      // Refresh local state
-      setBehaviorRecordsMap(prev => ({
-        ...prev,
-        [incidentDate]: updatedRecords
-      }));
+      // Update local state smoothly
+      setIncidentsList(prev => [
+        { id: docRef.id, ...newIncidentData },
+        ...prev
+      ]);
 
       setSuccessMessage('Behavioral incident successfully logged!');
       setIncidentDescription('');
@@ -156,32 +158,21 @@ export default function BehaviorManagementPage() {
   };
 
   // ── 3. Helper Calculations & Aggregations ──
-  // Compute incidents per student across all dates
   const studentIncidentStats = studentsList.map(student => {
-    let totalIncidents = 0;
+    // Filter incidents matching this student's ID
+    const studentIncidents = incidentsList.filter(inc => inc.studentId === student.studentId);
+    
     let severeCount = 0;
     let moderateCount = 0;
     let minorCount = 0;
-    const history = [];
 
-    Object.keys(behaviorRecordsMap).forEach(dateKey => {
-      const dayRecords = behaviorRecordsMap[dateKey];
-      Object.keys(dayRecords).forEach(key => {
-        if (key === student.studentId || key.startsWith(student.studentId)) {
-          const inc = dayRecords[key];
-          totalIncidents++;
-          if (inc.severity === 'Severe') severeCount++;
-          else if (inc.severity === 'Moderate') moderateCount++;
-          else minorCount++;
-
-          history.push({
-            date: dateKey,
-            ...inc
-          });
-        }
-      });
+    studentIncidents.forEach(inc => {
+      if (inc.severity === 'Severe') severeCount++;
+      else if (inc.severity === 'Moderate') moderateCount++;
+      else minorCount++;
     });
 
+    const totalIncidents = studentIncidents.length;
     // Conduct Score calculation (Start at 100, deduct points per incident severity)
     const conductScore = Math.max(0, 100 - (severeCount * 15 + moderateCount * 8 + minorCount * 3));
 
@@ -192,23 +183,23 @@ export default function BehaviorManagementPage() {
       moderateCount,
       minorCount,
       conductScore,
-      history
+      history: studentIncidents.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
     };
   });
 
-  // Sort for Rankings (Cleanest conduct score / fewest incidents first, or vice versa)
+  // Sort for Rankings (Highest conduct score first)
   const rankedStudents = [...studentIncidentStats].sort((a, b) => b.conductScore - a.conductScore);
 
   const selectedStudentObj = studentIncidentStats.find(s => s.studentId === selectedStudentId) || studentIncidentStats[0];
 
-  // Filtered list for student selection
+  // Filtered list for student selection sidebar
   const filteredStudents = studentsList.filter(s => 
     String(s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     String(s.studentId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     String(s.grade || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ── 4. Export to CSV ──
+  // ── 4. Export & Print Handlers ──
   const handleExportCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,Student ID,Student Name,Grade,Total Incidents,Severe,Moderate,Minor,Conduct Score\n";
     
@@ -317,9 +308,7 @@ export default function BehaviorManagementPage() {
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
                   <p className="text-xs text-slate-500 font-medium">Total Incidents Logged</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">
-                    {studentIncidentStats.reduce((acc, s) => acc + s.totalIncidents, 0)}
-                  </p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{incidentsList.length}</p>
                 </div>
                 <div className="p-3 bg-rose-50 rounded-xl text-rose-600 border border-rose-100">
                   <ShieldAlert className="w-6 h-6" />
@@ -370,41 +359,39 @@ export default function BehaviorManagementPage() {
                     <tr>
                       <th className="py-3 px-6 font-bold">Date</th>
                       <th className="py-3 px-6 font-bold">Student Name</th>
-                      <th className="py-3 px-6 font-bold">Grade</th>
+                      <th className="py-3 px-6 font-bold">Student ID</th>
                       <th className="py-3 px-6 font-bold">Incident Type</th>
                       <th className="py-3 px-6 font-bold">Severity</th>
                       <th className="py-3 px-6 font-bold">Description</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {Object.keys(behaviorRecordsMap).length === 0 ? (
+                    {incidentsList.length === 0 ? (
                       <tr>
                         <td colSpan="6" className="text-center py-12 text-slate-400">No behavioral incidents logged yet.</td>
                       </tr>
                     ) : (
-                      Object.entries(behaviorRecordsMap).flatMap(([dateKey, dayRecords]) => 
-                        Object.entries(dayRecords).map(([studId, incident], i) => {
-                          const student = studentsList.find(s => s.studentId === studId);
-                          return (
-                            <tr key={`${dateKey}-${studId}-${i}`} className="hover:bg-slate-50">
-                              <td className="py-3 px-6 font-mono text-slate-600">{dateKey}</td>
-                              <td className="py-3 px-6 font-bold text-slate-900">{student?.name || studId}</td>
-                              <td className="py-3 px-6 text-slate-600">{student?.grade || 'N/A'}</td>
-                              <td className="py-3 px-6 font-semibold text-slate-800">{incident.type}</td>
-                              <td className="py-3 px-6">
-                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
-                                  incident.severity === 'Severe' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                                  incident.severity === 'Moderate' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                  'bg-blue-100 text-blue-800 border border-blue-200'
-                                }`}>
-                                  {incident.severity}
-                                </span>
-                              </td>
-                              <td className="py-3 px-6 text-slate-600 max-w-xs truncate">{incident.description}</td>
-                            </tr>
-                          );
-                        })
-                      )
+                      incidentsList.map((incident) => {
+                        const student = studentsList.find(s => s.studentId === incident.studentId);
+                        return (
+                          <tr key={incident.id} className="hover:bg-slate-50">
+                            <td className="py-3 px-6 font-mono text-slate-600">{incident.date || 'N/A'}</td>
+                            <td className="py-3 px-6 font-bold text-slate-900">{incident.studentName || student?.name || 'Unknown'}</td>
+                            <td className="py-3 px-6 font-mono text-slate-500 text-[11px]">{incident.studentId}</td>
+                            <td className="py-3 px-6 font-semibold text-slate-800">{incident.type}</td>
+                            <td className="py-3 px-6">
+                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
+                                incident.severity === 'Severe' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                incident.severity === 'Moderate' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                'bg-blue-100 text-blue-800 border border-blue-200'
+                              }`}>
+                                {incident.severity}
+                              </span>
+                            </td>
+                            <td className="py-3 px-6 text-slate-600 max-w-xs truncate">{incident.description || '-'}</td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -544,7 +531,7 @@ export default function BehaviorManagementPage() {
                                 <span className="font-mono text-[11px] text-slate-500">{inc.date}</span>
                               </div>
                             </div>
-                            <p className="text-slate-700 pl-5">{inc.description}</p>
+                            <p className="text-slate-700 pl-5">{inc.description || 'No additional notes provided.'}</p>
                           </div>
                         ))}
                       </div>
@@ -694,18 +681,18 @@ export default function BehaviorManagementPage() {
                   <option value="Uniform Violation">Uniform Violation</option>
                   <option value="Property Damage">Property Damage</option>
                   <option value="General Conduct Infraction">General Conduct Infraction</option>
+                  <option value="Late Entry">Late Entry</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Detailed Description / Remarks *</label>
+                <label className="block font-bold text-slate-700 mb-1">Detailed Description / Remarks</label>
                 <textarea
                   rows="3"
                   placeholder="Enter specific details of the incident..."
                   value={incidentDescription}
                   onChange={(e) => setIncidentDescription(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-500"
-                  required
                 />
               </div>
 
