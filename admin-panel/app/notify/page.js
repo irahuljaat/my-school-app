@@ -193,7 +193,8 @@ export default function NotifyPage() {
         finally { setUploading(false); }
     };
 
-    // ── Resolve tokens for chosen audience ────────────────────────────────    const resolveTokens = async () => {
+    // ── Resolve tokens for chosen audience ────────────────────────────────    
+    const resolveTokens = async () => {
         let tokens = [];
 
         if (target === 'all') {
@@ -342,6 +343,7 @@ export default function NotifyPage() {
                 failureCount: isScheduled ? 0 : result.failure,
                 createdAt:    timeString,
                 timestamp:    Number(timestampKey),
+                scheduledFor: isScheduled ? `${scheduleDate} ${scheduleTime}` : undefined,
             }, ...prev].slice(0, 10));
 
             setPayload({ title: '', body: '', imageUrl: '', targetId: 'all', targetName: 'Whole School' });
