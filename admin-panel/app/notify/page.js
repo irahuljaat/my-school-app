@@ -193,8 +193,7 @@ export default function NotifyPage() {
         finally { setUploading(false); }
     };
 
-    // ── Resolve tokens for chosen audience ────────────────────────────────────
-    const resolveTokens = async () => {
+    // ── Resolve tokens for chosen audience ────────────────────────────────    const resolveTokens = async () => {
         let tokens = [];
 
         if (target === 'all') {
