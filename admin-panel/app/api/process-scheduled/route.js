@@ -55,7 +55,12 @@ export async function GET(request) {
                     const notice = updatedDateGroup[timestampKey];
 
                     if (notice && typeof notice === 'object' && notice.fcmStatus === 'scheduled' && notice.scheduledFor) {
-                        const scheduledTime = new Date(notice.scheduledFor.replace(' ', 'T')); // Format: "YYYY-MM-DDTHH:mm"
+                        // Fix: Format string and explicitly enforce IST offset (+05:30) for Vercel servers
+                        let formattedDateStr = notice.scheduledFor.replace(' ', 'T');
+                        if (!formattedDateStr.includes('+') && !formattedDateStr.includes('Z')) {
+                            formattedDateStr = `${formattedDateStr}:00+05:30`;
+                        }
+                        const scheduledTime = new Date(formattedDateStr);
 
                         // Check if the scheduled time has arrived or passed
                         if (now >= scheduledTime) {
