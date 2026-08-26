@@ -1,7 +1,7 @@
 import { db } from '../../firebase/config';
 import { collection, getDocs, doc, getDoc, updateDoc, query, where } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
 
 export async function GET(request) {
     try {
