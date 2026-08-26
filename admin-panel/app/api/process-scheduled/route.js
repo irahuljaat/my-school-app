@@ -5,10 +5,12 @@ import * as admin from 'firebase-admin';
 
 export async function GET(request) {
     try {
-        // Initialize Firebase Admin safely inside the handler at runtime
-        if (!admin.apps.length) {
-            admin.initializeApp({
-                credential: admin.credential.cert({
+        // Safely resolve the admin app instance and check apps length
+        const firebaseAdmin = admin.default || admin;
+        
+        if (!firebaseAdmin.apps || firebaseAdmin.apps.length === 0) {
+            firebaseAdmin.initializeApp({
+                credential: firebaseAdmin.credential.cert({
                     projectId: process.env.FIREBASE_PROJECT_ID,
                     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
                     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -104,7 +106,7 @@ export async function GET(request) {
 
                                 if (tokens.length > 0) {
                                     if (tokens.length === 1) {
-                                        await admin.messaging().send({
+                                        await firebaseAdmin.messaging().send({
                                             token: tokens[0],
                                             notification: {
                                                 title: notice.title || "School Notice",
@@ -116,7 +118,7 @@ export async function GET(request) {
                                         });
                                         successCount = 1;
                                     } else {
-                                        const response = await admin.messaging().sendEachForMulticast({
+                                        const response = await firebaseAdmin.messaging().sendEachForMulticast({
                                             tokens: tokens,
                                             notification: {
                                                 title: notice.title || "School Notice",
