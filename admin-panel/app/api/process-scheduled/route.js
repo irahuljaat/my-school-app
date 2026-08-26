@@ -1,16 +1,15 @@
 import { db } from '../../firebase/config';
 import { collection, getDocs, doc, getDoc, updateDoc, query, where } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 
 export async function GET(request) {
     try {
-        // Safely resolve the admin app instance and check apps length
-        const firebaseAdmin = admin.default || admin;
-        
-        if (!firebaseAdmin.apps || firebaseAdmin.apps.length === 0) {
-            firebaseAdmin.initializeApp({
-                credential: firebaseAdmin.credential.cert({
+        // Initialize Firebase Admin using modular SDK functions
+        if (!getApps().length) {
+            initializeApp({
+                credential: cert({
                     projectId: process.env.FIREBASE_PROJECT_ID,
                     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
                     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -106,7 +105,7 @@ export async function GET(request) {
 
                                 if (tokens.length > 0) {
                                     if (tokens.length === 1) {
-                                        await firebaseAdmin.messaging().send({
+                                        await getMessaging().send({
                                             token: tokens[0],
                                             notification: {
                                                 title: notice.title || "School Notice",
@@ -118,7 +117,7 @@ export async function GET(request) {
                                         });
                                         successCount = 1;
                                     } else {
-                                        const response = await firebaseAdmin.messaging().sendEachForMulticast({
+                                        const response = await getMessaging().sendEachForMulticast({
                                             tokens: tokens,
                                             notification: {
                                                 title: notice.title || "School Notice",
