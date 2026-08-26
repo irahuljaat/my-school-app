@@ -55,7 +55,7 @@ export async function GET(request) {
                     const notice = updatedDateGroup[timestampKey];
 
                     if (notice && typeof notice === 'object' && notice.fcmStatus === 'scheduled' && notice.scheduledFor) {
-                        const scheduledTime = new Date(notice.scheduledFor); // Format: "YYYY-MM-DD HH:mm"
+                        const scheduledTime = new Date(notice.scheduledFor.replace(' ', 'T')); // Format: "YYYY-MM-DDTHH:mm"
 
                         // Check if the scheduled time has arrived or passed
                         if (now >= scheduledTime) {
