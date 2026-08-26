@@ -4,11 +4,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET(request) {
     try {
-        // Optional: Secure your endpoint with a secret key token in headers/query params
-        const authHeader = request.headers.get('authorization');
-        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        
 
         const now = new Date();
         // Format current date/time to match your app structure or query active sessions
