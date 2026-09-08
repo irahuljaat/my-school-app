@@ -1,6 +1,13 @@
 import React from 'react';
 import SchoolLogo from '../images/logo.png';
 
+// Fixed school configuration constant
+const SCHOOL_DETAILS = {
+    name: 'MVG PUBLIC SR. SEC. SCHOOL',
+    address: 'Sheopur, Pratap Nagar, Sanganer, Jaipur',
+    contact: '0141-3152600, 9829018832'
+};
+
 const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDate }) => {
     
     const extractClassFromId = (id) => {
@@ -9,7 +16,7 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
         return parts.length > 1 ? parts[1] : '—';
     };
 
-    const studentClass = extractClassFromId(student.id);
+    const studentClass = student.grade || extractClassFromId(student.id);
     const isHigherSecondary = ['11', '12'].includes(studentClass);
 
     const gradingSubjectList = ['G.K', 'GK', 'GENERAL KNOWLEDGE', 'COMPUTER', 'DRAWING', 'ART', 'CRAFT', 'YOGA', 'PHYSICAL EDUCATION'];
@@ -76,9 +83,9 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
     };
 
     const calculateDivision = (pct) => {
-        if (pct >= 60) return '1st';
-        if (pct >= 45) return '2nd';
-        if (pct >= 33) return '3rd';
+        if (pct >= 60) return '1st Division';
+        if (pct >= 45) return '2nd Division';
+        if (pct >= 33) return '3rd Division';
         return 'Needs Improvement';
     };
 
@@ -95,8 +102,8 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
                     <div className="flex items-center gap-4">
                         <img src={SchoolLogo.src || SchoolLogo} alt="Logo" className="w-16 h-16 object-contain" />
                         <div>
-                            <h1 className="text-[22pt] font-black text-slate-800 tracking-tight leading-none">MVG PUBLIC SR. SEC. SCHOOL</h1>
-                            <p className="text-[8.5px] font-semibold text-slate-500 uppercase mt-1 tracking-wider">Sheopur, Pratap Nagar, Sanganer, Jaipur • Ph: 0141-3152600, 9829018832</p>
+                            <h1 className="text-[22pt] font-black text-slate-800 tracking-tight leading-none">{SCHOOL_DETAILS.name}</h1>
+                            <p className="text-[8.5px] font-semibold text-slate-500 uppercase mt-1 tracking-wider">{SCHOOL_DETAILS.address} • Ph: {SCHOOL_DETAILS.contact}</p>
                         </div>
                     </div>
                     <div className="text-right">
@@ -106,32 +113,39 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
                     </div>
                 </div>
 
-                {/* Student Info Card (Modern Clean Grid with Profile Photo) */}
-                <div className="relative z-10 grid grid-cols-[100px_1fr] gap-4 mb-5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <div className="w-[90px] h-[110px] bg-white border border-slate-200 flex items-center justify-center overflow-hidden rounded-lg shadow-inner">
-                        {student.imageUrl ? <img src={student.imageUrl} className="w-full h-full object-cover" /> : <span className="text-[7.5px] text-slate-400 font-semibold uppercase text-center px-1">Photo</span>}
+                {/* Increased Height Student Info Card */}
+                <div className="relative z-10 grid grid-cols-[115px_1fr] gap-6 mb-5 p-5 bg-slate-50 border border-slate-200 rounded-2xl shadow-xs">
+                    <div className="w-[105px] h-[135px] bg-white border border-slate-200 flex items-center justify-center overflow-hidden rounded-xl shadow-inner self-center">
+                        {student.imageUrl ? (
+                            <img src={student.imageUrl} className="w-full h-full object-cover" alt="Student" />
+                        ) : (
+                            <div className="text-center p-2 text-slate-400">
+                                <span className="text-xl block mb-1">👤</span>
+                                <span className="text-[7.5px] font-bold uppercase tracking-wider block">Student Photo</span>
+                            </div>
+                        )}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 self-center">
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 self-center">
                         {[
-                            { label: "Student Name", value: student.name, bold: true, color: "text-slate-900" },
+                            { label: "Student Name", value: student.name || student.studentName, bold: true, color: "text-slate-900" },
                             { label: "SR. Number", value: student.srNo || '—', color: "text-emerald-700 font-bold" },
-                            { label: "Father's Name", value: student.fatherName },
+                            { label: "Father's Name", value: student.fatherName || '—' },
                             { label: "Mother's Name", value: student.motherName || '—' },
-                            { label: "Class & Section", value: `${studentClass} - ${student.section || 'A'}`, color: "text-slate-900" },
-                            { label: "Roll Number", value: student.rollNumber || '—' },
+                            { label: "Class & Section", value: `${studentClass} - ${student.section || 'A'}`, color: "text-slate-900 font-bold" },
+                            { label: "Roll Number", value: student.rollNumber || student.rollNo || '—' },
                             { label: "Date of Birth", value: student.dob || '—' },
-                            { label: "Attendance", value: '—' },
+                            { label: "Result Status", value: stats.percentage >= 33 ? 'PASSED' : 'DETAINED', color: stats.percentage >= 33 ? 'text-emerald-700 font-black' : 'text-rose-700 font-black' },
                         ].map((item, i) => (
-                            <div key={i} className="flex justify-between items-center border-b border-slate-200/60 pb-1">
-                                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider">{item.label}</span>
-                                <span className={`text-[9px] uppercase ${item.bold ? 'font-extrabold' : 'font-semibold'} ${item.color || 'text-slate-700'}`}>{item.value}</span>
+                            <div key={i} className="flex justify-between items-center border-b border-slate-200/80 pb-1.5">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{item.label}</span>
+                                <span className={`text-[9.5px] uppercase ${item.bold ? 'font-black' : 'font-semibold'} ${item.color || 'text-slate-700'}`}>{item.value}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Marks Table */}
-                <div className="relative z-10 mb-4 border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm">
+                <div className="relative z-10 mb-4 border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-slate-900 text-white text-[8.5px] font-bold uppercase tracking-wider">
@@ -199,29 +213,66 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
                     </table>
                 </div>
                 
-                {/* Summary / Stats Grid */}
-                <div className="relative z-10 grid grid-cols-4 gap-3 mb-4">
-                    {[
-                        { label: "Grand Total", val: `${stats.totalObtained} / ${stats.totalMax}` },
-                        { label: "Percentage", val: `${stats.percentage}%`, highlight: true },
-                        { label: "Overall Division", val: calculateDivision(stats.percentage) },
-                        { label: "Overall Grade", val: calculateGrade(stats.percentage) }
-                    ].map((stat, i) => (
-                        <div key={i} className={`p-3 flex flex-col justify-center border ${stat.highlight ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-slate-50/60'} text-center rounded-xl`}>
-                            <span className="text-[7.5px] font-bold uppercase text-slate-400 tracking-wider mb-1">
-                                {stat.label}
-                            </span>
-                            <div className={`text-base font-black tracking-tight ${stat.highlight ? 'text-emerald-800' : 'text-slate-800'}`}>
-                                {stat.val}
-                            </div>
+                {/* 5-Column Stats Grid with Increased Height & Attendance */}
+                <div className="relative z-10 grid grid-cols-5 gap-3 mb-4">
+                    {/* Grand Total */}
+                    <div className="h-24 p-3 flex flex-col justify-center border border-slate-200 bg-slate-50/60 text-center rounded-xl shadow-2xs">
+                        <span className="text-[7.5px] font-bold uppercase text-slate-400 tracking-wider mb-1">
+                            Grand Total
+                        </span>
+                        <div className="text-base font-black tracking-tight text-slate-800">
+                            {stats.totalObtained} / {stats.totalMax}
                         </div>
-                    ))}
+                    </div>
+
+                    {/* Percentage */}
+                    <div className="h-24 p-3 flex flex-col justify-center border-2 border-emerald-400 bg-emerald-50/60 text-center rounded-xl shadow-xs">
+                        <span className="text-[7.5px] font-bold uppercase text-emerald-800 tracking-wider mb-1">
+                            Percentage
+                        </span>
+                        <div className="text-lg font-black tracking-tight text-emerald-800">
+                            {stats.percentage}%
+                        </div>
+                    </div>
+
+                    {/* Division */}
+                    <div className="h-24 p-3 flex flex-col justify-center border border-slate-200 bg-slate-50/60 text-center rounded-xl shadow-2xs">
+                        <span className="text-[7.5px] font-bold uppercase text-slate-400 tracking-wider mb-1">
+                            Division
+                        </span>
+                        <div className="text-sm font-black tracking-tight text-slate-800">
+                            {calculateDivision(stats.percentage)}
+                        </div>
+                    </div>
+
+                    {/* Overall Grade */}
+                    <div className="h-24 p-3 flex flex-col justify-center border border-slate-200 bg-slate-50/60 text-center rounded-xl shadow-2xs">
+                        <span className="text-[7.5px] font-bold uppercase text-slate-400 tracking-wider mb-1">
+                            Overall Grade
+                        </span>
+                        <div className="text-base font-black tracking-tight text-slate-800">
+                            {calculateGrade(stats.percentage)}
+                        </div>
+                    </div>
+
+                    {/* Attendance Box */}
+                    <div className="h-24 p-3 flex flex-col justify-center border-2 border-dashed border-slate-300 bg-slate-50/40 text-center rounded-xl shadow-2xs">
+                        <span className="text-[7.5px] font-bold uppercase text-slate-500 tracking-wider mb-1">
+                            Attendance
+                        </span>
+                        <div className="text-[11px] font-mono font-bold text-slate-700 tracking-widest mt-0.5">
+                             /
+                        </div>
+                    </div>
                 </div>
 
                 {/* Remarks */}
                 <div className="relative z-10 mb-6 flex-grow">
                     <p className="text-[8.5px] font-bold uppercase text-slate-500 mb-1 tracking-wide">Class Teacher's Remarks:</p>
-                    <div className="p-3 border border-slate-200 h-[50px] rounded-lg bg-slate-50/40"></div>
+                    <div className="p-3 border border-slate-200 h-[55px] rounded-xl bg-slate-50/40 flex flex-col justify-around">
+                        <div className="border-b border-dashed border-slate-200 w-full" />
+                        <div className="border-b border-dashed border-slate-200 w-full" />
+                    </div>
                 </div>
 
                 {/* Signatures */}
@@ -233,7 +284,7 @@ const MarksheetTemplateModern = ({ student, examResults, activeSession, resultDa
 
                 {/* Result Issue Date */}
                 <div className="relative z-10 flex justify-between items-center mt-3 pt-3 border-t border-slate-100 text-[8.5px] text-slate-500 font-medium">
-                    <span>System Generated Document — MVG Public School</span>
+                    <span>System Generated Document — {SCHOOL_DETAILS.name}</span>
                     <span>Date of Result: {resultDate ? new Date(resultDate).toLocaleDateString('en-GB') : '_________________'}</span>
                 </div>
             </div>

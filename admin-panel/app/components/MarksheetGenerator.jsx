@@ -14,6 +14,7 @@ import {
 } from 'react-icons/hi'; 
 import MarksheetTemplateSimple from './MarksheetTemplateSimple';
 import MarksheetTemplateModern from './MarksheetTemplateModern';
+import MarksheetTemplateKids from './MarksheetTemplateKids';
 
 function MarksheetGenerator({ onBack }) {
     const [exams, setExams] = useState([]);
@@ -25,7 +26,7 @@ function MarksheetGenerator({ onBack }) {
     const [loading, setLoading] = useState(false);
     const [activeSession, setActiveSession] = useState('');
     const [resultDate, setResultDate] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedTemplate, setSelectedTemplate] = useState('modern'); // 'modern' or 'classic'
+    const [selectedTemplate, setSelectedTemplate] = useState('modern'); // 'modern', 'classic', or 'kids'
 
     useEffect(() => {
         const unsub = onSnapshot(doc(db, 'config', 'settings'), (docSnap) => {
@@ -151,7 +152,7 @@ function MarksheetGenerator({ onBack }) {
                         <HiOutlineChevronLeft/> Back
                     </button>
                     <div className="flex items-center gap-3">
-                        {/* Template Switcher Dropdown */}
+                        {/* Template Switcher Dropdown Fixed */}
                         <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Layout:</span>
                             <select 
@@ -161,6 +162,7 @@ function MarksheetGenerator({ onBack }) {
                             >
                                 <option value="modern">Modern Minimal Template</option>
                                 <option value="classic">Classic Formal Template</option>
+                                <option value="kids">Kids Template</option>
                             </select>
                         </div>
                         <div className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm">
@@ -245,6 +247,13 @@ function MarksheetGenerator({ onBack }) {
                     <div key={idx} className="marksheet-page-wrapper">
                         {selectedTemplate === 'classic' ? (
                             <MarksheetTemplateSimple
+                                student={data.student} 
+                                examResults={data.examResults} 
+                                activeSession={activeSession} 
+                                resultDate={resultDate}
+                            />
+                        ) : selectedTemplate === 'kids' ? (
+                            <MarksheetTemplateKids 
                                 student={data.student} 
                                 examResults={data.examResults} 
                                 activeSession={activeSession} 
