@@ -8,7 +8,10 @@ import {
     HiOutlineClipboardCheck,
     HiOutlineChartBar,
     HiOutlineTrendingDown,
-    HiX
+    HiOutlineCalendar,
+    HiCheck,
+    HiX,
+    HiBell
 } from "react-icons/hi";
 
 import { db } from "../firebase/config";
@@ -121,6 +124,80 @@ const AttendanceListModal = ({ isOpen, onClose, attendanceRecords, students, cla
     );
 };
 
+// --- Leave Action Popup Modal ---
+const LeaveActionPopupModal = ({ isOpen, onClose, pendingLeaves, onAction, isWindowClosed }) => {
+    if (!isOpen || pendingLeaves.length === 0) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden border border-gray-100">
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-yellow-50 to-white">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-yellow-400 text-gray-900 rounded-full shadow-sm">
+                            <HiBell size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900">Pending Leave Approvals</h2>
+                            <p className="text-xs font-medium text-gray-500">Action window is open (Before 10:00 AM on leave end date)</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <HiX size={22} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
+                    {pendingLeaves.map((leave) => (
+                        <div key={leave.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-3 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-yellow-100 text-yellow-800 flex items-center justify-center font-bold text-xs">
+                                        {leave.studentName?.charAt(0) || "S"}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-sm">{leave.studentName}</h4>
+                                        <p className="text-xs text-gray-500">Class {leave.grade} • {leave.subject}</p>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                                    Pending
+                                </span>
+                            </div>
+
+                            <p className="text-xs text-gray-700 bg-white p-3 rounded-xl border border-gray-100">
+                                "{leave.message}"
+                            </p>
+
+                            <div className="flex items-center justify-between pt-1">
+                                <span className="text-[11px] font-medium text-gray-400">
+                                    From: {leave.fromDate} | To: {leave.toDate}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => onAction(leave.id, 'Approved')}
+                                        className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                                    >
+                                        <HiCheck size={14} /> Approve
+                                    </button>
+                                    <button 
+                                        onClick={() => onAction(leave.id, 'Declined')}
+                                        className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                                    >
+                                        <HiX size={14} /> Decline
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Dashboard Component ---
 const StatCard = memo(({ icon: Icon, label, value, bgClass, iconColorClass, subText }) => (
     <div className={`bg-white p-6 rounded-[24px] flex flex-col justify-center transition-transform hover:-translate-y-1 duration-300 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100`}>
@@ -156,6 +233,10 @@ export default function ProfessionalDashboard() {
     const [availableClasses, setAvailableClasses] = useState([]);
     const [todayAttendanceData, setTodayAttendanceData] = useState({});
     const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+
+    // State for Leave Applications
+    const [leaveApplications, setLeaveApplications] = useState([]);
+    const [isLeavePopupOpen, setIsLeavePopupOpen] = useState(false);
 
     const [stats, setStats] = useState({ 
         totalStudents: 0, 
@@ -250,6 +331,44 @@ export default function ProfessionalDashboard() {
         };
 
         fetchStudentsAndStructures();
+
+        // --- Fetch Leave Applications Real-time ---
+        const unsubLeaves = onSnapshot(collection(db, "sessions", data.session, "leaveApplications"), (snapshot) => {
+            const leaves = snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data()
+            }));
+
+            leaves.sort((a, b) => {
+                const timeA = a.appliedAt?.toDate ? a.appliedAt.toDate() : new Date(a.appliedAt || a.fromDate || 0);
+                const timeB = b.appliedAt?.toDate ? b.appliedAt.toDate() : new Date(b.appliedAt || b.fromDate || 0);
+                return timeB - timeA;
+            });
+
+            setLeaveApplications(leaves);
+
+            // Check if any pending leave is within the action window (toDate based)
+            const nowCheck = new Date();
+            const pendingList = leaves.filter(l => {
+                if (l.status !== 'Pending' || !l.toDate) return false;
+                const endDate = new Date(l.toDate);
+                endDate.setHours(23, 59, 59, 999);
+
+                // Window is open if today is before endDate, or today equals endDate and time < 10 AM
+                const todayMidnight = new Date();
+                todayMidnight.setHours(0, 0, 0, 0);
+                const endMidnight = new Date(l.toDate);
+                endMidnight.setHours(0, 0, 0, 0);
+
+                if (todayMidnight < endMidnight) return true;
+                if (todayMidnight.getTime() === endMidnight.getTime() && nowCheck.getHours() < 10) return true;
+                return false;
+            });
+
+            if (pendingList.length > 0) {
+                setIsLeavePopupOpen(true);
+            }
+        });
 
         // --- Fee Collections Real-time ---
         const unsubFees = onSnapshot(collectionGroup(db, 'feePayments'), async (snap) => {
@@ -374,19 +493,14 @@ export default function ProfessionalDashboard() {
                     }));
                 };
 
-                // 1. Listen to salaryPayments collection for Expenses
                 unsubSalary = onSnapshot(collection(db, 'salaryPayments'), (salarySnap) => {
                     salarySnap.docs.forEach(docSnap => {
                         const docData = docSnap.data();
                         const entries = Object.values(docData).filter(val => val && typeof val === 'object' && val.monthYear);
-                        
-                        if (docData.monthYear) {
-                            entries.push(docData);
-                        }
+                        if (docData.monthYear) entries.push(docData);
 
                         entries.forEach(sData => {
                             if (sData.isPaid !== true && String(sData.isPaid).toLowerCase() !== "true") return;
-                            
                             const amt = Number(sData.salary || sData.amount || 0);
                             const my = String(sData.monthYear || ""); 
                             
@@ -410,11 +524,9 @@ export default function ProfessionalDashboard() {
                             }
                         });
                     });
-                    
                     updateGraphState();
                 });
 
-                // 2. Listen to manual accounts
                 unsubAccounts = onSnapshot(collection(db, 'sessions', data.session, 'accounts'), (manualSnap) => {
                     manualSnap.docs.forEach(d => {
                         const mData = d.data();
@@ -422,11 +534,8 @@ export default function ProfessionalDashboard() {
                         const isInc = String(mData.type || "").toLowerCase() === 'income';
                         
                         let dObj = new Date();
-                        if (mData.date?.toDate) {
-                            dObj = mData.date.toDate();
-                        } else if (mData.date) {
-                            dObj = new Date(mData.date);
-                        }
+                        if (mData.date?.toDate) dObj = mData.date.toDate();
+                        else if (mData.date) dObj = new Date(mData.date);
 
                         if (isNaN(dObj.getTime()) || dObj > currentDate) return;
 
@@ -435,12 +544,8 @@ export default function ProfessionalDashboard() {
                         const mKey = `${mShort}-${yShort}`;
 
                         if (!localIncExpMap[mKey]) localIncExpMap[mKey] = { income: 0, expense: 0 };
-                        
-                        if (isInc) {
-                            localIncExpMap[mKey].income += amt;
-                        } else {
-                            localIncExpMap[mKey].expense += amt;
-                        }
+                        if (isInc) localIncExpMap[mKey].income += amt;
+                        else localIncExpMap[mKey].expense += amt;
 
                         if (dObj.getMonth() === currentMonthIdx && dObj.getFullYear() === currentYear) {
                             if (isInc) localTotalIncome += amt;
@@ -450,7 +555,6 @@ export default function ProfessionalDashboard() {
                     updateGraphState();
                 });
 
-                // 3. Include student fee payments into Income graph
                 unsubFeePaymentsForGraph = onSnapshot(collectionGroup(db, 'feePayments'), (snap) => {
                     snap.docs.forEach(d => {
                         if (!d.ref.path.includes(data.session)) return;
@@ -513,7 +617,6 @@ export default function ProfessionalDashboard() {
 
         const unsubAttendance = onSnapshot(attendanceQuery, (snap) => {
             let combinedRecords = {};
-            
             snap.docs.forEach(docSnap => {
                 const docData = docSnap.data();
                 if (docData.records && typeof docData.records === 'object') {
@@ -521,14 +624,10 @@ export default function ProfessionalDashboard() {
                 }
             });
 
-            // Build a set of valid active student IDs for quick lookup
             const activeStudentIds = new Set(allStudents.map(s => s.id || s.docId));
-
-            // Count present only for students who are currently active
             let presentCount = 0;
             Object.entries(combinedRecords).forEach(([studentId, status]) => {
                 if (status && String(status).toLowerCase() === 'present') {
-                    // If allStudents is loaded, verify they are active. Otherwise count normally.
                     if (activeStudentIds.size === 0 || activeStudentIds.has(studentId)) {
                         presentCount++;
                     }
@@ -549,8 +648,20 @@ export default function ProfessionalDashboard() {
             unsubSalary();
             unsubAccounts();
             unsubFeePaymentsForGraph();
+            unsubLeaves();
         };
     }, [data.session]);
+
+    // Handle leave status updates (Approve/Decline)
+    const handleLeaveAction = async (leaveId, newStatus) => {
+        try {
+            await updateDoc(doc(db, "sessions", data.session, "leaveApplications", leaveId), {
+                status: newStatus
+            });
+        } catch (error) {
+            console.error("Error updating leave application status:", error);
+        }
+    };
 
     if (data.loading) return (
         <div className="min-h-screen flex items-center justify-center font-bold text-gray-400 bg-[#F4F6F8]">
@@ -560,6 +671,18 @@ export default function ProfessionalDashboard() {
 
     const maxFeeAmt = monthlyFeeTrend.length > 0 ? Math.max(...monthlyFeeTrend.map(m => m.amount), 1000) : 1000;
     const maxIncExpAmt = incomeVsExpenseTrend.length > 0 ? Math.max(...incomeVsExpenseTrend.map(m => Math.max(m.income, m.expense)), 1000) : 1000;
+
+    // Helper to check if a leave application's action window is closed (based on toDate & 10:00 AM)
+    const checkIfWindowClosed = (toDateStr) => {
+        if (!toDateStr) return false;
+        const now = new Date();
+        const endDate = new Date(toDateStr);
+        endDate.setHours(10, 0, 0, 0); // 10:00 AM on the toDate
+
+        return now.getTime() > endDate.getTime();
+    };
+
+    const pendingLeaves = leaveApplications.filter(l => l.status === 'Pending' && !checkIfWindowClosed(l.toDate));
 
     return (
         <div className="min-h-screen bg-[#F4F6F8] p-6 lg:p-8 font-sans relative">
@@ -646,6 +769,99 @@ export default function ProfessionalDashboard() {
                                 style={{ width: `${stats.totalStudents > 0 ? Math.min(Math.round((stats.todayAttendancePresent / stats.totalStudents) * 100), 100) : 0}%` }}
                             ></div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Leave Applications Section (Full Width / Standalone) */}
+                <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <HiOutlineCalendar className="text-yellow-500" size={22} />
+                                Leave Applications
+                            </h2>
+                            {pendingLeaves.length > 0 && (
+                                <button 
+                                    onClick={() => setIsLeavePopupOpen(true)}
+                                    className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full animate-pulse hover:bg-amber-200 transition-colors"
+                                >
+                                    Open Action Popup ({pendingLeaves.length})
+                                </button>
+                            )}
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
+                            {leaveApplications.length} Total
+                        </span>
+                    </div>
+
+                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {leaveApplications.length > 0 ? (
+                            leaveApplications.map((leave) => {
+                                const isWindowClosed = checkIfWindowClosed(leave.toDate);
+
+                                return (
+                                    <div key={leave.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold text-xs">
+                                                    {leave.studentName?.charAt(0) || "S"}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 text-sm">{leave.studentName}</h4>
+                                                    <p className="text-xs text-gray-500">Class {leave.grade} • {leave.subject}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                                                leave.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                                                leave.status === 'Declined' ? 'bg-red-100 text-red-700' :
+                                                'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                                {leave.status || 'Pending'}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100">
+                                            "{leave.message}"
+                                        </p>
+
+                                        <div className="flex items-center justify-between pt-1">
+                                            <span className="text-[11px] font-medium text-gray-400">
+                                                From: {leave.fromDate} | To: {leave.toDate}
+                                            </span>
+
+                                            {/* Action window check based on toDate & 10:00 AM */}
+                                            {isWindowClosed ? (
+                                                <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+                                                    Action window closed (&gt;10:00 AM on end date) — Notified
+                                                </span>
+                                            ) : (
+                                                leave.status === 'Pending' && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button 
+                                                            onClick={() => handleLeaveAction(leave.id, 'Approved')}
+                                                            className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                                        >
+                                                            <HiCheck size={14} /> Approve
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleLeaveAction(leave.id, 'Declined')}
+                                                            className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                                        >
+                                                            <HiX size={14} /> Decline
+                                                        </button>
+                                                    </div>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="h-40 flex flex-col items-center justify-center text-gray-400 text-sm font-medium bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                                <HiOutlineCalendar className="w-8 h-8 text-gray-300 mb-1" />
+                                No leave applications found.
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -806,6 +1022,16 @@ export default function ProfessionalDashboard() {
                 attendanceRecords={todayAttendanceData}
                 students={allStudents}
                 classes={availableClasses}
+            />
+
+            <LeaveActionPopupModal 
+                isOpen={isLeavePopupOpen}
+                onClose={() => setIsLeavePopupOpen(false)}
+                pendingLeaves={pendingLeaves}
+                onAction={(id, status) => {
+                    handleLeaveAction(id, status);
+                    if (pendingLeaves.length <= 1) setIsLeavePopupOpen(false);
+                }}
             />
         </div>
     );
