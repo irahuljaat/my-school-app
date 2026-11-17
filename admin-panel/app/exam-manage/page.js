@@ -31,12 +31,12 @@ const VIEWS = {
     RELEASE: { id: 'RELEASE', label: 'Result Control', icon: HiOutlineEye },
 };
 
-// Roll Number Starting Points Mapping
-const CLASS_ROLL_START = {
-    'LKG': 101, 'UKG': 201, 'PREP': 301,
-    '1': 401, '2': 501, '3': 601, '4': 701, '5': 801,
-    '6': 901, '7': 1001, '8': 1101, '9': 1201, '10': 1301,
-    '11': 1401, '12': 1501
+// Roll Number Base Offsets Mapping from LKG
+const CLASS_OFFSETS = {
+    'LKG': 0, 'UKG': 100, 'PREP': 200,
+    '1': 300, '2': 400, '3': 500, '4': 600, '5': 700,
+    '6': 800, '7': 900, '8': 1000, '9': 1100, '10': 1200,
+    '11': 1300, '12': 1400
 };
 
 function ExamManagementPage() {
@@ -57,7 +57,17 @@ function ExamManagementPage() {
     // --- Roll Number Assignment Logic ---
     const handleAssignRollNumbers = async () => {
         if (!activeSession) return;
-        const confirmAction = window.confirm("This will overwrite existing roll numbers for ALL students in alphabetical order. Continue?");
+
+        const inputVal = window.prompt("Enter the starting roll number for LKG (e.g., 1, 101, 201):", "101");
+        if (inputVal === null) return; // User cancelled
+
+        const baseStart = parseInt(inputVal, 10);
+        if (isNaN(baseStart)) {
+            alert("Please enter a valid numeric starting number.");
+            return;
+        }
+
+        const confirmAction = window.confirm(`This will assign roll numbers starting from LKG at ${baseStart} (with subsequent classes offset accordingly) for ALL students in alphabetical order. Continue?`);
         if (!confirmAction) return;
 
         setIsAssigning(true);
@@ -81,8 +91,10 @@ function ExamManagementPage() {
             const batch = writeBatch(db);
 
             Object.keys(studentsByClass).forEach(className => {
-                const startRange = CLASS_ROLL_START[className];
-                if (!startRange) return;
+                const offset = CLASS_OFFSETS[className];
+                if (offset === undefined) return;
+
+                const startRange = baseStart + offset;
 
                 const sortedList = studentsByClass[className].sort((a, b) => 
                     a.name.localeCompare(b.name)

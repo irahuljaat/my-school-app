@@ -20,7 +20,7 @@ function DocumentGenerator({ onBack, activeSession }) {
     const [selectedExams, setSelectedExams] = useState([]); 
     const [selectedClass, setSelectedClass] = useState('');
     const [generatedData, setGeneratedData] = useState([]); 
-    const [selectedStudentIds, setSelectedStudentIds] = useState([]); // New state for selection
+    const [selectedStudentIds, setSelectedStudentIds] = useState([]); 
     const [message, setMessage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [showOnlyDummy, setShowOnlyDummy] = useState(false);
@@ -44,7 +44,7 @@ function DocumentGenerator({ onBack, activeSession }) {
         }
         setLoading(true);
         setGeneratedData([]);
-        setSelectedStudentIds([]); // Reset selection on new fetch
+        setSelectedStudentIds([]); 
         
         try {
             let studentRef = collection(db, 'sessions', activeSession, 'students');
@@ -101,7 +101,6 @@ function DocumentGenerator({ onBack, activeSession }) {
             });
 
             setGeneratedData(finalData);
-            // Default select all students
             setSelectedStudentIds(finalData.map(item => item.student.id));
             setMessage({ type: 'success', text: `Loaded ${finalData.length} students.` });
         } catch (e) {
@@ -110,14 +109,12 @@ function DocumentGenerator({ onBack, activeSession }) {
         setLoading(false);
     };
 
-    // Toggle single student selection
     const toggleStudentSelection = (id) => {
         setSelectedStudentIds(prev => 
             prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
         );
     };
 
-    // Toggle Select All
     const handleSelectAll = () => {
         if (selectedStudentIds.length === generatedData.length) {
             setSelectedStudentIds([]);
@@ -126,16 +123,77 @@ function DocumentGenerator({ onBack, activeSession }) {
         }
     };
 
-    // Filtered data for printing
     const printData = useMemo(() => {
         return generatedData.filter(item => selectedStudentIds.includes(item.student.id));
     }, [generatedData, selectedStudentIds]);
+
+    // Function to open a clean new tab containing ONLY the admit cards for printing
+    const handleOpenPrintTab = () => {
+        const printContent = document.getElementById('printable-content');
+        if (!printContent) return;
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Admit Cards - MVG Public Sr. Sec. School</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <style>
+                        @page { 
+                            size: A4 portrait; 
+                            margin: 0; 
+                        }
+                        body { 
+                            margin: 0; 
+                            padding: 0; 
+                            background: white; 
+                            -webkit-print-color-adjust: exact; 
+                            print-color-adjust: exact; 
+                        }
+                        .print-area { 
+                            display: block; 
+                            width: 100%; 
+                        }
+                        .admit-card-wrapper { 
+                            display: block;
+                            height: 148.5mm; 
+                            width: 210mm; 
+                            box-sizing: border-box;
+                            overflow: hidden; 
+                            padding: 6mm 10mm;
+                            page-break-inside: avoid;
+                            break-inside: avoid;
+                        }
+                        .admit-card-wrapper:nth-child(2n) { 
+                            page-break-after: always; 
+                            break-after: page;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div id="printable-content" class="print-area">
+                        ${printContent.innerHTML}
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.focus();
+                                window.print();
+                            }, 500);
+                        }
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
 
     return (
         <div className="bg-slate-50 min-h-screen p-4 md:p-8">
             <div className="max-w-6xl mx-auto space-y-6">
                 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <button onClick={onBack} className="flex items-center text-indigo-600 font-bold mb-2 uppercase text-[10px] tracking-widest">
                             <HiOutlineChevronLeft className="w-4 h-4 mr-1"/> Back
@@ -156,7 +214,7 @@ function DocumentGenerator({ onBack, activeSession }) {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 no-print">
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <select value={selectedClass} onChange={(e) => {setSelectedClass(e.target.value); setGeneratedData([]);}}
                             className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none ring-1 ring-slate-100">
@@ -174,16 +232,15 @@ function DocumentGenerator({ onBack, activeSession }) {
                             <button onClick={fetchData} disabled={loading} className="flex-1 bg-indigo-600 text-white p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-transform">
                                 {loading ? 'Loading...' : 'Fetch Students'}
                             </button>
-                            <button onClick={() => window.print()} disabled={selectedStudentIds.length === 0} className="bg-slate-800 text-white px-6 rounded-2xl font-black shadow-lg disabled:opacity-50 active:scale-95 transition-transform">
+                            <button onClick={handleOpenPrintTab} disabled={selectedStudentIds.length === 0} title="Open Print View in New Tab" className="bg-slate-800 text-white px-6 rounded-2xl font-black shadow-lg disabled:opacity-50 active:scale-95 transition-transform flex items-center justify-center">
                                 <HiOutlinePrinter size={24}/>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* --- STUDENT SELECTION LIST --- */}
                 {generatedData.length > 0 && (
-                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden no-print">
+                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                         <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <HiOutlineUserGroup className="text-slate-400" />
@@ -217,8 +274,8 @@ function DocumentGenerator({ onBack, activeSession }) {
                     </div>
                 )}
 
-                {/* --- PRINT AREA (Filtered) --- */}
-                <div id="printable-content" className="print-area">
+                {/* Hidden container used to generate HTML markup for the new print window */}
+                <div id="printable-content" className="hidden">
                     {printData.map((item, idx) => (
                         <div key={idx} className="admit-card-wrapper">
                             <AdmitCardTemplate student={item.student} data={item.data} />
@@ -226,30 +283,6 @@ function DocumentGenerator({ onBack, activeSession }) {
                     ))}
                 </div>
             </div>
-
-            {/* Same CSS as before, just ensuring the print area only shows selected items */}
-            <style jsx global>{`
-                .print-area { display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%; }
-                @media print {
-                    @page { size: A4 portrait; margin: 0; }
-                    html, body { height: auto !important; background: white !important; margin: 0 !important; padding: 0 !important; }
-                    .no-print { display: none !important; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    body * { visibility: hidden !important; }
-                    #printable-content, #printable-content * { visibility: visible !important; }
-                    #printable-content { position: absolute !important; left: 0 !important; top: 0 !important; width: 210mm !important; display: block !important; }
-                    .admit-card-wrapper { 
-                        display: block !important; 
-                        height: 148.5mm !important; 
-                        width: 210mm !important; 
-                        overflow: hidden !important; 
-                        padding: 8mm 10mm !important; 
-                        page-break-inside: avoid !important;
-                        border-bottom: 1px dashed #eee; 
-                    }
-                    .admit-card-wrapper:nth-child(2n) { page-break-after: always !important; border-bottom: none; }
-                }
-            `}</style>
         </div>
     );
 }

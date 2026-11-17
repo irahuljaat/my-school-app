@@ -37,8 +37,9 @@ export default function SchoolTimetableMatrixManager() {
     const [assignClass, setAssignClass] = useState('');
     const [assignSubject, setAssignSubject] = useState('');
 
+    // --- SUBJECT MAPPING MODAL STATE (MULTIPLE CLASSES SUPPORT) ---
     const [isAssignSubjectsModalOpen, setIsAssignSubjectsModalOpen] = useState(false);
-    const [selectedClassForSubjects, setSelectedClassForSubjects] = useState('1');
+    const [selectedClassesForSubjects, setSelectedClassesForSubjects] = useState(['LKG']);
     const [tempAssignedSubjects, setTempAssignedSubjects] = useState([]);
     const [newSubjectInput, setNewSubjectInput] = useState('');
 
@@ -321,20 +322,52 @@ export default function SchoolTimetableMatrixManager() {
     };
 
     const handleOpenAssignModal = () => {
-        setSelectedClassForSubjects(classesList[0]);
+        setSelectedClassesForSubjects([classesList[0]]);
         setTempAssignedSubjects(classSubjectsMap[classesList[0]] || []);
         setNewSubjectInput('');
         setIsAssignSubjectsModalOpen(true);
     };
 
+    const handleToggleClassSelection = (cls) => {
+        setSelectedClassesForSubjects(prev => {
+            const exists = prev.includes(cls);
+            let updated;
+            if (exists) {
+                updated = prev.filter(c => c !== cls);
+            } else {
+                updated = [...prev, cls];
+            }
+            
+            // If at least one class is selected, auto-load subjects of the first selected class as baseline
+            if (updated.length > 0) {
+                setTempAssignedSubjects(classSubjectsMap[updated[0]] || []);
+            } else {
+                setTempAssignedSubjects([]);
+            }
+            return updated;
+        });
+    };
+
     const handleSaveAssignedSubjects = async () => {
+        if (selectedClassesForSubjects.length === 0) {
+            setMessage({ type: 'error', text: 'Please select at least one target class.' });
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const subDocRef = doc(db, 'sessions', activeSession, 'subjects', selectedClassForSubjects);
-            await setDoc(subDocRef, { assignedSubjects: tempAssignedSubjects }, { merge: true });
+            // Save the exact same set of subjects independently to each selected class document in Firestore
+            // This prevents data collision by writing cleanly to individual documents (e.g., sessions/2026-2027/subjects/LKG, etc.)
+            const newMapUpdates = { ...classSubjectsMap };
 
-            setClassSubjectsMap(prev => ({ ...prev, [selectedClassForSubjects]: tempAssignedSubjects }));
-            setMessage({ type: 'success', text: `Subjects for Class ${selectedClassForSubjects} updated!` });
+            for (const cls of selectedClassesForSubjects) {
+                const subDocRef = doc(db, 'sessions', activeSession, 'subjects', cls);
+                await setDoc(subDocRef, { assignedSubjects: tempAssignedSubjects }, { merge: true });
+                newMapUpdates[cls] = tempAssignedSubjects;
+            }
+
+            setClassSubjectsMap(newMapUpdates);
+            setMessage({ type: 'success', text: `Subjects mapped successfully for classes: ${selectedClassesForSubjects.join(', ')}!` });
             setIsAssignSubjectsModalOpen(false);
             setTimeout(() => setMessage(null), 3000);
         } catch (error) {
@@ -722,15 +755,16 @@ export default function SchoolTimetableMatrixManager() {
                 </div>
             )}
 
-            {/* ASSIGN SUBJECTS MODAL */}
+            {/* ASSIGN SUBJECTS MODAL (MULTIPLE CLASSES SELECTION) */}
             {isAssignSubjectsModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#303972]/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-xl w-full p-8 space-y-8 animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full p-8 space-y-8 animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center pb-5 border-b-2 border-slate-100">
                             <div>
                                 <h3 className="text-xl font-black text-[#303972] flex items-center gap-3 uppercase tracking-wider">
-                                    <HiBookOpen className="text-indigo-600" size={24} /> Subject Mapping
+                                    <HiBookOpen className="text-indigo-600" size={24} /> Multi-Class Subject Mapping
                                 </h3>
+                                <p className="text-xs font-bold text-slate-400 mt-1">Select multiple classes (e.g. LKG to Prep) to map subjects simultaneously without collisions.</p>
                             </div>
                             <button onClick={() => setIsAssignSubjectsModalOpen(false)} className="text-slate-400 hover:text-[#303972] p-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                                 <HiX size={20} />
@@ -739,18 +773,29 @@ export default function SchoolTimetableMatrixManager() {
 
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-[11px] font-black text-[#303972] uppercase tracking-widest mb-3">Target Class</label>
-                                <select
-                                    value={selectedClassForSubjects}
-                                    onChange={(e) => {
-                                        setSelectedClassForSubjects(e.target.value);
-                                        setTempAssignedSubjects(classSubjectsMap[e.target.value] || []);
-                                        setNewSubjectInput('');
-                                    }}
-                                    className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-[#303972] outline-none focus:border-indigo-600 transition-colors"
-                                >
-                                    {classesList.map((cls) => <option key={cls} value={cls}>Class {cls}</option>)}
-                                </select>
+                                <label className="block text-[11px] font-black text-[#303972] uppercase tracking-widest mb-3">Target Classes (Select Multiple)</label>
+                                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-40 overflow-y-auto p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl">
+                                    {classesList.map((cls) => {
+                                        const isSelected = selectedClassesForSubjects.includes(cls);
+                                        return (
+                                            <button
+                                                key={cls}
+                                                type="button"
+                                                onClick={() => handleToggleClassSelection(cls)}
+                                                className={`py-2 px-1 rounded-xl text-xs font-black uppercase transition-all border ${
+                                                    isSelected 
+                                                        ? 'bg-[#303972] text-white border-[#303972] shadow-sm' 
+                                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                {cls}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wide">
+                                    Selected Classes: <span className="text-indigo-600">{selectedClassesForSubjects.join(', ') || 'None'}</span>
+                                </p>
                             </div>
 
                             <div>
@@ -775,8 +820,8 @@ export default function SchoolTimetableMatrixManager() {
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-black text-[#303972] uppercase tracking-widest mb-3">Active Dictionary</label>
-                                <div className="max-h-56 overflow-y-auto p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl space-y-3 custom-scrollbar">
+                                <label className="block text-[11px] font-black text-[#303972] uppercase tracking-widest mb-3">Active Dictionary Preview</label>
+                                <div className="max-h-48 overflow-y-auto p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl space-y-3 custom-scrollbar">
                                     {tempAssignedSubjects.length === 0 ? (
                                         <p className="text-[11px] font-bold text-slate-400 text-center py-6 uppercase tracking-widest">No subjects recorded.</p>
                                     ) : (
@@ -795,8 +840,8 @@ export default function SchoolTimetableMatrixManager() {
 
                         <div className="flex justify-end gap-4 pt-6 border-t-2 border-slate-100">
                             <button type="button" onClick={() => setIsAssignSubjectsModalOpen(false)} className="px-6 py-3 text-xs font-bold text-slate-500 hover:text-[#303972] uppercase tracking-wider">Cancel</button>
-                            <button type="button" disabled={isLoading} onClick={handleSaveAssignedSubjects} className="px-8 py-3 bg-[#303972] hover:bg-indigo-900 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-2 transition-all active:scale-95">
-                                <HiSave size={18} /> Save Registry
+                            <button type="button" disabled={isLoading || selectedClassesForSubjects.length === 0} onClick={handleSaveAssignedSubjects} className="px-8 py-3 bg-[#303972] hover:bg-indigo-900 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50">
+                                <HiSave size={18} /> Save Registry to Selected Classes
                             </button>
                         </div>
                     </div>

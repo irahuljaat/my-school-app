@@ -11,7 +11,10 @@ import {
     HiOutlineCalendar,
     HiCheck,
     HiX,
-    HiBell
+    HiBell,
+    HiOutlineChevronRight,
+    HiOutlineCake,
+    HiOutlineFilter
 } from "react-icons/hi";
 
 import { db } from "../firebase/config";
@@ -48,74 +51,85 @@ const AttendanceListModal = ({ isOpen, onClose, attendanceRecords, students, cla
     });
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-100">
-                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Today's Attendance</h2>
-                        <p className="text-sm font-medium text-gray-500 mt-0.5">View and filter student attendance</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-200/80">
+                {/* Modal Header */}
+                <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100/80 shadow-sm">
+                            <HiOutlineClipboardCheck size={22} />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Today's Attendance Report</h2>
+                            <p className="text-xs font-medium text-slate-500">Live verification and student roster</p>
+                        </div>
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
                     >
-                        <HiX size={24} />
+                        <HiX size={20} />
                     </button>
                 </div>
 
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex p-1 bg-gray-100 rounded-xl w-full sm:w-auto">
+                {/* Filters */}
+                <div className="px-7 py-3.5 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex p-1 bg-slate-200/60 rounded-xl w-full sm:w-auto">
                         <button
                             onClick={() => setActiveTab("present")}
-                            className={`flex-1 sm:flex-none px-6 py-2 text-sm font-bold rounded-lg transition-all ${
-                                activeTab === "present" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            className={`flex-1 sm:flex-none px-5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                activeTab === "present" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                             }`}
                         >
                             Present
                         </button>
                         <button
                             onClick={() => setActiveTab("absent")}
-                            className={`flex-1 sm:flex-none px-6 py-2 text-sm font-bold rounded-lg transition-all ${
-                                activeTab === "absent" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            className={`flex-1 sm:flex-none px-5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                activeTab === "absent" ? "bg-white text-rose-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                             }`}
                         >
                             Absent
                         </button>
                     </div>
 
-                    <select
-                        value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
-                        className="w-full sm:w-auto bg-white border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none shadow-sm"
-                    >
-                        <option value="All">All Classes</option>
-                        {classes.map(cls => (
-                            <option key={cls} value={cls}>Class {cls}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            className="w-full sm:w-48 bg-white border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm transition-all"
+                        >
+                            <option value="All">All Standard Classes</option>
+                            {classes.map(cls => (
+                                <option key={cls} value={cls}>Class {cls}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 bg-white">
+                {/* Students Roster */}
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                     {filteredStudents.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {filteredStudents.map((student, idx) => (
-                                <div key={idx} className="flex items-center gap-3.5 p-3 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-white border border-gray-200 text-gray-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                                <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/70 bg-white hover:border-indigo-300 hover:shadow-sm transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs border border-slate-200/80 shadow-inner">
                                         {student.name?.charAt(0) || "-"}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-gray-900 text-sm truncate">{student.name}</p>
-                                        <p className="text-xs font-medium text-gray-500 truncate">
-                                            Class {student.grade} • ID: {student.id || student.docId || 'N/A'}
+                                        <p className="font-semibold text-slate-900 text-xs truncate group-hover:text-indigo-600 transition-colors">{student.name}</p>
+                                        <p className="text-[11px] font-medium text-slate-500 truncate">
+                                            Class {student.grade} <span className="text-slate-300">•</span> Roll: {student.id || student.docId || 'N/A'}
                                         </p>
                                     </div>
-                                    <div className={`w-2.5 h-2.5 rounded-full ${activeTab === 'present' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                    <span className={`w-2.5 h-2.5 rounded-full ${activeTab === 'present' ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-rose-500 ring-4 ring-rose-100'}`}></span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="h-40 flex items-center justify-center text-gray-400 text-sm font-medium">
-                            No students found for this selection.
+                        <div className="h-44 flex flex-col items-center justify-center text-slate-400 text-xs font-medium">
+                            <HiOutlineFilter className="w-8 h-8 text-slate-300 mb-2 stroke-[1.5]" />
+                            No student records found under this filter.
                         </div>
                     )}
                 </div>
@@ -129,62 +143,62 @@ const LeaveActionPopupModal = ({ isOpen, onClose, pendingLeaves, onAction, isWin
     if (!isOpen || pendingLeaves.length === 0) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden border border-gray-100">
-                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-yellow-50 to-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden border border-slate-200/80">
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50/80 via-white to-white">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-yellow-400 text-gray-900 rounded-full shadow-sm">
+                        <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-sm shadow-amber-500/20">
                             <HiBell size={20} />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900">Pending Leave Approvals</h2>
-                            <p className="text-xs font-medium text-gray-500">Action window is open (Before 10:00 AM on leave end date)</p>
+                            <h2 className="text-base font-bold text-slate-900">Pending Leave Approvals</h2>
+                            <p className="text-[11px] font-medium text-slate-500">Action window valid until 10:00 AM on end date</p>
                         </div>
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
-                        <HiX size={22} />
+                        <HiX size={20} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
+                <div className="flex-1 overflow-y-auto p-5 space-y-3.5 bg-slate-50/40">
                     {pendingLeaves.map((leave) => (
-                        <div key={leave.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-3 shadow-sm">
+                        <div key={leave.id} className="p-4 rounded-2xl bg-white border border-slate-200/80 flex flex-col gap-3 shadow-sm hover:border-amber-200 transition-colors">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-yellow-100 text-yellow-800 flex items-center justify-center font-bold text-xs">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
                                         {leave.studentName?.charAt(0) || "S"}
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-gray-900 text-sm">{leave.studentName}</h4>
-                                        <p className="text-xs text-gray-500">Class {leave.grade} • {leave.subject}</p>
+                                        <h4 className="font-bold text-slate-900 text-xs">{leave.studentName}</h4>
+                                        <p className="text-[11px] text-slate-500">Class {leave.grade} • {leave.subject}</p>
                                     </div>
                                 </div>
-                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                     Pending
                                 </span>
                             </div>
 
-                            <p className="text-xs text-gray-700 bg-white p-3 rounded-xl border border-gray-100">
+                            <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic">
                                 "{leave.message}"
                             </p>
 
-                            <div className="flex items-center justify-between pt-1">
-                                <span className="text-[11px] font-medium text-gray-400">
-                                    From: {leave.fromDate} | To: {leave.toDate}
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
+                                <span className="text-[11px] font-semibold text-slate-400">
+                                    {leave.fromDate} → {leave.toDate}
                                 </span>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
                                     <button 
                                         onClick={() => onAction(leave.id, 'Approved')}
-                                        className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                                        className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm"
                                     >
                                         <HiCheck size={14} /> Approve
                                     </button>
                                     <button 
                                         onClick={() => onAction(leave.id, 'Declined')}
-                                        className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                                        className="flex items-center gap-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-slate-200"
                                     >
                                         <HiX size={14} /> Decline
                                     </button>
@@ -198,21 +212,22 @@ const LeaveActionPopupModal = ({ isOpen, onClose, pendingLeaves, onAction, isWin
     );
 };
 
-// --- Main Dashboard Component ---
-const StatCard = memo(({ icon: Icon, label, value, bgClass, iconColorClass, subText }) => (
-    <div className={`bg-white p-6 rounded-[24px] flex flex-col justify-center transition-transform hover:-translate-y-1 duration-300 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100`}>
-        <div className="flex items-center gap-4">
-            <div className={`p-4 rounded-full flex-shrink-0 flex items-center justify-center ${iconColorClass}`}>
+// --- Metric Stat Card Component ---
+const StatCard = memo(({ icon: Icon, label, value, iconStyles, badgeText }) => (
+    <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] hover:shadow-md hover:border-slate-300 transition-all duration-300 relative overflow-hidden group">
+        <div className="flex items-start justify-between">
+            <div className="space-y-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
+                <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">{value}</h3>
+            </div>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 duration-300 ${iconStyles}`}>
                 <Icon size={24} strokeWidth={2} />
             </div>
-            <div>
-                <p className="text-gray-500 text-sm font-medium mb-1">{label}</p>
-                <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{value}</h2>
-            </div>
         </div>
-        {subText && (
-            <div className="mt-4 flex items-center gap-1.5 ml-16">
-                <span className="text-xs font-semibold text-gray-400">{subText}</span>
+        {badgeText && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-slate-400">{badgeText}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             </div>
         )}
     </div>
@@ -664,8 +679,9 @@ export default function ProfessionalDashboard() {
     };
 
     if (data.loading) return (
-        <div className="min-h-screen flex items-center justify-center font-bold text-gray-400 bg-[#F4F6F8]">
-            Loading Dashboard...
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans gap-3">
+            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="font-semibold text-slate-500 text-sm tracking-wide">Initializing School ERP Portal...</p>
         </div>
     );
 
@@ -683,169 +699,211 @@ export default function ProfessionalDashboard() {
     };
 
     const pendingLeaves = leaveApplications.filter(l => l.status === 'Pending' && !checkIfWindowClosed(l.toDate));
+    const attendancePercentage = stats.totalStudents > 0 
+        ? Math.min(Math.round((stats.todayAttendancePresent / stats.totalStudents) * 100), 100) 
+        : 0;
 
     return (
-        <div className="min-h-screen bg-[#F4F6F8] p-6 lg:p-8 font-sans relative">
-            <div className="max-w-[1400px] mx-auto space-y-6">
+        <div className="min-h-screen bg-[#F8FAFC] text-slate-800 p-4 sm:p-6 lg:p-8 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+            <div className="max-w-[1440px] mx-auto space-y-6">
                 
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 pt-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
-                        <p className="text-sm font-medium text-gray-500 mt-2">Here's what's happening in your school today.</p>
+                {/* Top Navigation & Session Bar */}
+                <header className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-5">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span> Live Instance
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">Administrator Command Center</span>
+                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Institutional Dashboard</h1>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Comprehensive academic, collection, and administrative telemetry</p>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-gray-600">Current Session:</span>
-                        <select 
-                            value={data.session} 
-                            onChange={(e) => updateDoc(doc(db, "config", "settings"), { activeSession: e.target.value })} 
-                            className="bg-yellow-400 text-black px-5 py-2.5 rounded-full font-bold text-sm cursor-pointer outline-none focus:ring-4 focus:ring-yellow-400/20 shadow-sm transition-all border-none appearance-none pr-8 relative"
-                            style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.8rem top 50%', backgroundSize: '0.65rem auto' }}
-                        >
-                            {data.sessions?.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200/70 self-start md:self-auto">
+                        <div className="px-3">
+                            <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Session</span>
+                            <span className="text-xs font-bold text-slate-700">Academic Year</span>
+                        </div>
+                        <div className="relative">
+                            <select 
+                                value={data.session} 
+                                onChange={(e) => updateDoc(doc(db, "config", "settings"), { activeSession: e.target.value })} 
+                                className="bg-white text-slate-900 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer pr-9 appearance-none transition-all"
+                            >
+                                {data.sessions?.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* KPI Metrics Matrix */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     <StatCard 
                         icon={HiOutlineAcademicCap} 
-                        label="Active Students" 
+                        label="Enrolled Students" 
                         value={stats.totalStudents} 
-                        bgClass="bg-white" 
-                        iconColorClass="bg-yellow-50 text-yellow-600" 
-                        subText="Enrolled this session"
+                        iconStyles="bg-indigo-50 text-indigo-600 border border-indigo-100" 
+                        badgeText="Active standard enrollment"
                     />
                     <StatCard 
                         icon={HiOutlineCurrencyRupee} 
-                        label="Present Month Fee" 
+                        label="Current Month Fee" 
                         value={`₹ ${stats.monthlyFeeColl.toLocaleString('en-IN')}`} 
-                        bgClass="bg-white" 
-                        iconColorClass="bg-gray-100 text-gray-800" 
-                        subText="Collected current month"
+                        iconStyles="bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                        badgeText="Collected this month"
                     />
                     <StatCard 
                         icon={HiOutlineCurrencyRupee} 
-                        label="Complete Session Fee" 
+                        label="Session Fee Realized" 
                         value={`₹ ${stats.totalSessionColl.toLocaleString('en-IN')}`} 
-                        bgClass="bg-white" 
-                        iconColorClass="bg-yellow-50 text-yellow-600" 
-                        subText="Total session collection"
+                        iconStyles="bg-blue-50 text-blue-600 border border-blue-100" 
+                        badgeText="Cumulative collections"
                     />
                     <StatCard 
                         icon={HiOutlineExclamationCircle} 
-                        label="Pending Fees Overview" 
+                        label="Outstanding Dues" 
                         value={`₹ ${stats.pendingFeesTotal.toLocaleString('en-IN')}`} 
-                        bgClass="bg-white" 
-                        iconColorClass="bg-red-50 text-red-500" 
-                        subText="Outstanding student dues"
+                        iconStyles="bg-rose-50 text-rose-600 border border-rose-100" 
+                        badgeText="Net receivables overdue"
                     />
                 </div>
 
-                {/* Today's Attendance Overview */}
+                {/* Actionable Hero Attendance Strip */}
                 <div 
                     onClick={() => setIsAttendanceModalOpen(true)}
-                    className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:border-yellow-400/50 hover:shadow-lg transition-all group"
+                    className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl shadow-slate-900/10 cursor-pointer overflow-hidden group border border-slate-700/50 hover:border-indigo-500/50 transition-all duration-300"
                 >
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-gray-900 text-white rounded-full group-hover:bg-yellow-400 group-hover:text-gray-900 transition-colors">
-                            <HiOutlineClipboardCheck size={28} />
+                    <div className="absolute right-0 top-0 bottom-0 w-96 bg-gradient-to-l from-indigo-500/10 to-transparent pointer-events-none"></div>
+                    
+                    <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-amber-400 group-hover:scale-105 group-hover:bg-amber-400 group-hover:text-slate-900 transition-all duration-300">
+                                <HiOutlineClipboardCheck size={32} />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-lg sm:text-xl font-bold tracking-tight">Real-Time Daily Attendance</h3>
+                                    <span className="hidden sm:inline-flex text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        Live Rollcall
+                                    </span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-300 font-normal mt-0.5">
+                                    Click here to open student roll, filter standard, and view absentee registry
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">Today's Attendance Overview</h3>
-                            <p className="text-sm font-medium text-gray-500 mt-0.5">Click to view detailed real-time attendance tracking</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                        <div className="text-right">
-                            <span className="text-3xl font-bold text-gray-900">{stats.todayAttendancePresent}</span>
-                            <span className="text-gray-500 font-medium text-sm ml-2">/ {stats.totalStudents} Present</span>
-                        </div>
-                        <div className="w-32 bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                            <div 
-                                className="bg-yellow-400 h-full rounded-full transition-all duration-500" 
-                                style={{ width: `${stats.totalStudents > 0 ? Math.min(Math.round((stats.todayAttendancePresent / stats.totalStudents) * 100), 100) : 0}%` }}
-                            ></div>
+
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full lg:w-auto justify-end">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">{stats.todayAttendancePresent}</span>
+                                <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">/ {stats.totalStudents} Present</span>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5 w-full sm:w-44">
+                                <div className="flex justify-between text-[11px] font-bold text-slate-300">
+                                    <span>Rate</span>
+                                    <span>{attendancePercentage}%</span>
+                                </div>
+                                <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-[1px] border border-white/10">
+                                    <div 
+                                        className="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-700 ease-out shadow-sm" 
+                                        style={{ width: `${attendancePercentage}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-slate-300 group-hover:text-white group-hover:translate-x-1 transition-all">
+                                <HiOutlineChevronRight size={18} />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Leave Applications Section (Full Width / Standalone) */}
-                <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
+                {/* Leave Requests Stream */}
+                <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)]">
+                    <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <HiOutlineCalendar className="text-yellow-500" size={22} />
-                                Leave Applications
-                            </h2>
+                            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+                                <HiOutlineCalendar size={20} />
+                            </div>
+                            <div>
+                                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Student Leave Requests</h2>
+                                <p className="text-xs text-slate-400">Applications submitted for administrative clearance</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
                             {pendingLeaves.length > 0 && (
                                 <button 
                                     onClick={() => setIsLeavePopupOpen(true)}
-                                    className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full animate-pulse hover:bg-amber-200 transition-colors"
+                                    className="flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100/80 hover:bg-amber-200 border border-amber-200/80 px-3.5 py-1.5 rounded-xl transition-all"
                                 >
-                                    Open Action Popup ({pendingLeaves.length})
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                                    Review Pending ({pendingLeaves.length})
                                 </button>
                             )}
+                            <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                                {leaveApplications.length} Total
+                            </span>
                         </div>
-                        <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-                            {leaveApplications.length} Total
-                        </span>
                     </div>
 
-                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
                         {leaveApplications.length > 0 ? (
                             leaveApplications.map((leave) => {
                                 const isWindowClosed = checkIfWindowClosed(leave.toDate);
 
                                 return (
-                                    <div key={leave.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
+                                    <div key={leave.id} className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-slate-300 flex flex-col gap-3 transition-colors">
+                                        <div className="flex items-center justify-between flex-wrap gap-2">
                                             <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold text-xs">
+                                                <div className="w-9 h-9 rounded-xl bg-white border border-slate-200/80 text-slate-800 flex items-center justify-center font-bold text-xs shadow-xs">
                                                     {leave.studentName?.charAt(0) || "S"}
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-bold text-gray-900 text-sm">{leave.studentName}</h4>
-                                                    <p className="text-xs text-gray-500">Class {leave.grade} • {leave.subject}</p>
+                                                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">{leave.studentName}</h4>
+                                                    <p className="text-[11px] font-medium text-slate-500">Class {leave.grade} • <span className="font-semibold text-slate-700">{leave.subject}</span></p>
                                                 </div>
                                             </div>
-                                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                                                leave.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                                leave.status === 'Declined' ? 'bg-red-100 text-red-700' :
-                                                'bg-yellow-100 text-yellow-800'
+
+                                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                                leave.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                leave.status === 'Declined' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                'bg-amber-50 text-amber-800 border-amber-200'
                                             }`}>
                                                 {leave.status || 'Pending'}
                                             </span>
                                         </div>
 
-                                        <p className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100">
+                                        <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/60 leading-relaxed font-normal">
                                             "{leave.message}"
                                         </p>
 
-                                        <div className="flex items-center justify-between pt-1">
-                                            <span className="text-[11px] font-medium text-gray-400">
-                                                From: {leave.fromDate} | To: {leave.toDate}
+                                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 flex-wrap gap-2">
+                                            <span className="text-[11px] font-semibold text-slate-400">
+                                                Duration: {leave.fromDate} to {leave.toDate}
                                             </span>
 
-                                            {/* Action window check based on toDate & 10:00 AM */}
                                             {isWindowClosed ? (
-                                                <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
-                                                    Action window closed (&gt;10:00 AM on end date) — Notified
-                                                </span>
-                                            ) : (
+    <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+        Action window lapsed ({">"}10:00 AM on leave end date)
+    </span>
+) : (
                                                 leave.status === 'Pending' && (
                                                     <div className="flex items-center gap-2">
                                                         <button 
                                                             onClick={() => handleLeaveAction(leave.id, 'Approved')}
-                                                            className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                                            className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm"
                                                         >
                                                             <HiCheck size={14} /> Approve
                                                         </button>
                                                         <button 
                                                             onClick={() => handleLeaveAction(leave.id, 'Declined')}
-                                                            className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                                            className="flex items-center gap-1 bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl transition-all border border-slate-200"
                                                         >
                                                             <HiX size={14} /> Decline
                                                         </button>
@@ -857,165 +915,196 @@ export default function ProfessionalDashboard() {
                                 );
                             })
                         ) : (
-                            <div className="h-40 flex flex-col items-center justify-center text-gray-400 text-sm font-medium bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                                <HiOutlineCalendar className="w-8 h-8 text-gray-300 mb-1" />
-                                No leave applications found.
+                            <div className="h-36 flex flex-col items-center justify-center text-slate-400 text-xs font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                <HiOutlineCalendar className="w-8 h-8 text-slate-300 mb-1" />
+                                No pending or historical leave records for this session.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Graphical Visualizations Row (Charts) */}
+                {/* Financial Analytics & Graphs Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
-                    {/* Fee Collection Trend */}
-                    <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                Fee Collection Trend
-                            </h2>
-                            <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">Live Fees</span>
+                    {/* Fee Collections Trend */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Fee Collection Velocity</h2>
+                                <p className="text-xs text-slate-400">Monthly realized revenue pipeline</p>
+                            </div>
+                            <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+                                Fiscal Trend
+                            </span>
                         </div>
 
                         {monthlyFeeTrend.length > 0 ? (
-                            <div className="h-64 flex items-end justify-between gap-3 pt-6 px-2 overflow-x-auto relative">
-                                <div className="absolute inset-0 border-b border-gray-100 pointer-events-none"></div>
+                            <div className="h-64 flex items-end justify-between gap-2 pt-8 px-2 overflow-x-auto relative">
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                    <div className="border-b border-dashed border-slate-300 w-full"></div>
+                                    <div className="border-b border-dashed border-slate-300 w-full"></div>
+                                    <div className="border-b border-slate-300 w-full"></div>
+                                </div>
                                 {monthlyFeeTrend.map((item, idx) => {
-                                    const heightPct = Math.max(Math.round((item.amount / maxFeeAmt) * 100), 12);
+                                    const heightPct = Math.max(Math.round((item.amount / maxFeeAmt) * 100), 8);
                                     return (
-                                        <div key={idx} className="flex-1 min-w-[36px] flex flex-col items-center gap-2 h-full justify-end group relative z-10">
-                                            <div className="text-[10px] font-bold text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded shadow-sm border border-gray-100 absolute -top-8">
+                                        <div key={idx} className="flex-1 min-w-[34px] flex flex-col items-center gap-2 h-full justify-end group relative z-10">
+                                            <div className="text-[10px] font-bold text-white bg-slate-900 px-2 py-1 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 pointer-events-none whitespace-nowrap z-20">
                                                 ₹{item.amount.toLocaleString('en-IN')}
                                             </div>
                                             <div 
                                                 style={{ height: `${heightPct}%` }} 
-                                                className="w-full max-w-[40px] bg-yellow-400 rounded-t-xl transition-all duration-500 group-hover:bg-yellow-300"
+                                                className="w-full max-w-[36px] bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-xl transition-all duration-500 group-hover:from-indigo-500 group-hover:to-indigo-300 group-hover:shadow-md"
                                             ></div>
-                                            <span className="text-xs font-medium text-gray-500 mt-2">{item.month}</span>
+                                            <span className="text-[11px] font-semibold text-slate-500 mt-1">{item.month}</span>
                                         </div>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <div className="h-64 flex flex-col items-center justify-center text-gray-400 text-sm font-medium bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                                <HiOutlineChartBar className="w-10 h-10 text-gray-300 mb-2" />
-                                No past/current fee payment records found yet.
+                            <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-xs font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                <HiOutlineChartBar className="w-9 h-9 text-slate-300 mb-2" />
+                                No tuition payment logs available for this period.
                             </div>
                         )}
                     </div>
 
-                    {/* Income & Expenditure Graph */}
-                    <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                Income & Expenditure
-                            </h2>
-                            <div className="flex items-center gap-4">
-                                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span> Income</span>
-                                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-gray-900"></span> Expense</span>
+                    {/* Operational Cashflow (Income vs Expense) */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Institutional Cashflow</h2>
+                                <p className="text-xs text-slate-400">Net revenue vs salary & operational expenditure</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                    <span className="w-2.5 h-2.5 rounded-md bg-emerald-500"></span> Income
+                                </span>
+                                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                    <span className="w-2.5 h-2.5 rounded-md bg-rose-500"></span> Outflow
+                                </span>
                             </div>
                         </div>
 
                         {incomeVsExpenseTrend.length > 0 ? (
-                            <div className="h-64 flex items-end justify-between gap-3 pt-6 px-2 overflow-x-auto relative">
-                                <div className="absolute inset-0 border-b border-gray-100 pointer-events-none"></div>
+                            <div className="h-64 flex items-end justify-between gap-3 pt-8 px-2 overflow-x-auto relative">
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                    <div className="border-b border-dashed border-slate-300 w-full"></div>
+                                    <div className="border-b border-dashed border-slate-300 w-full"></div>
+                                    <div className="border-b border-slate-300 w-full"></div>
+                                </div>
                                 {incomeVsExpenseTrend.map((item, idx) => {
-                                    const incHeight = Math.max(Math.round((item.income / maxIncExpAmt) * 100), 8);
-                                    const expHeight = Math.max(Math.round((item.expense / maxIncExpAmt) * 100), 8);
+                                    const incHeight = Math.max(Math.round((item.income / maxIncExpAmt) * 100), 6);
+                                    const expHeight = Math.max(Math.round((item.expense / maxIncExpAmt) * 100), 6);
                                     return (
-                                        <div key={idx} className="flex-1 min-w-[40px] flex flex-col items-center gap-2 h-full justify-end group relative z-10">
-                                            <div className="flex items-center gap-1 w-full justify-center h-full items-end">
+                                        <div key={idx} className="flex-1 min-w-[38px] flex flex-col items-center gap-2 h-full justify-end group relative z-10">
+                                            <div className="flex items-end justify-center gap-1 w-full h-full">
                                                 <div 
                                                     style={{ height: `${incHeight}%` }} 
-                                                    className="w-1/2 bg-yellow-400 rounded-t-md transition-all duration-500"
+                                                    className="w-1/2 max-w-[16px] bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md transition-all duration-500 group-hover:brightness-110"
                                                     title={`Income: ₹${item.income}`}
                                                 ></div>
                                                 <div 
                                                     style={{ height: `${expHeight}%` }} 
-                                                    className="w-1/2 bg-gray-900 rounded-t-md transition-all duration-500"
+                                                    className="w-1/2 max-w-[16px] bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-md transition-all duration-500 group-hover:brightness-110"
                                                     title={`Expense: ₹${item.expense}`}
                                                 ></div>
                                             </div>
-                                            <span className="text-xs font-medium text-gray-500 mt-2">{item.month}</span>
+                                            <span className="text-[11px] font-semibold text-slate-500 mt-1">{item.month}</span>
                                         </div>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <div className="h-64 flex flex-col items-center justify-center text-gray-400 text-sm font-medium bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                                <HiOutlineTrendingDown className="w-10 h-10 text-gray-300 mb-2" />
-                                No income/expenditure records found yet.
+                            <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-xs font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                <HiOutlineTrendingDown className="w-9 h-9 text-slate-300 mb-2" />
+                                No accounts expenditure logs indexed yet.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Bottom Row: Class Distribution & Upcoming Birthdays */}
+                {/* Bottom Row: Class Distribution & Birthdays */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between lg:col-span-2">
-                        <div>
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    Class Strength Distribution
-                                </h2>
-                                <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">Breakdown</span>
+                    {/* Class Strength Matrix */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] lg:col-span-2">
+                        <div className="flex items-center justify-between mb-5">
+                            <div>
+                                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Class Enrollment Strength</h2>
+                                <p className="text-xs text-slate-400">Roster distribution by grade capacity</p>
                             </div>
+                            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                                {classDistribution.length} Sections
+                            </span>
+                        </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2">
-                                {classDistribution.length > 0 ? (
-                                    classDistribution.map((item, i) => (
-                                        <div key={i} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-yellow-400/50 transition-colors">
-                                            <div className="flex justify-between items-center mb-2.5">
-                                                <span className="font-bold text-sm text-gray-800">Class {item.grade}</span>
-                                                <span className="text-sm font-bold text-gray-900">{item.count} <span className="text-gray-400 font-medium">({item.percentage}%)</span></span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[300px] overflow-y-auto pr-1">
+                            {classDistribution.length > 0 ? (
+                                classDistribution.map((item, i) => (
+                                    <div key={i} className="p-4 rounded-2xl bg-slate-50/60 border border-slate-200/70 hover:border-indigo-300 transition-colors">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="font-bold text-xs text-slate-800">Class {item.grade}</span>
+                                            <span className="text-xs font-bold text-slate-900">
+                                                {item.count} <span className="text-slate-400 font-semibold text-[11px]">({item.percentage}%)</span>
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                                style={{ width: `${item.percentage}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="col-span-2 text-center py-10 text-slate-400 text-xs font-medium">
+                                    No student rosters registered in this session.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Upcoming Student Birthdays */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between mb-5">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center border border-pink-100">
+                                        <HiOutlineCake size={18} />
+                                    </div>
+                                    <h2 className="text-base font-bold text-slate-900 tracking-tight">Upcoming Birthdays</h2>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2.5">
+                                {bdays.length > 0 ? bdays.map((s, i) => (
+                                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/70 hover:bg-indigo-50/40 border border-slate-200/70 hover:border-indigo-200 transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-indigo-700 flex items-center justify-center font-bold text-xs shadow-xs">
+                                                {s.name.charAt(0)}
                                             </div>
-                                            <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
-                                                <div className="bg-yellow-400 h-full rounded-full transition-all duration-500" style={{ width: `${item.percentage}%` }}></div>
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-xs truncate max-w-[130px]">{s.name}</p>
+                                                <p className="text-[11px] font-medium text-slate-400">Class {s.grade}</p>
                                             </div>
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="col-span-2 text-center py-12 text-gray-400 text-sm font-medium">
-                                        No student data available.
+                                        <span className="text-[11px] font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-xs">
+                                            {new Date(s.nextBirthday).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        </span>
+                                    </div>
+                                )) : (
+                                    <div className="text-center py-8 text-slate-400 text-xs font-medium">
+                                        No upcoming student birthdays recorded.
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
-
-                    <div className="bg-white p-6 rounded-[24px] shadow-[0_4px_24px_-8px_rgba(0,0,0,0.04)] border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                Upcoming Birthdays
-                            </h2>
-                        </div>
-                        
-                        <div className="space-y-3">
-                            {bdays.length > 0 ? bdays.map((s, i) => (
-                                <div key={i} className="flex items-center justify-between p-3.5 bg-gray-50 hover:bg-yellow-50/50 rounded-2xl transition-colors border border-gray-100">
-                                    <div className="flex items-center gap-3.5">
-                                        <div className="w-11 h-11 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-lg">
-                                            {s.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-gray-900 text-sm">{s.name}</p>
-                                            <p className="text-xs font-medium text-gray-500 mt-0.5">Class {s.grade}</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-900 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
-                                        {new Date(s.nextBirthday).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                    </span>
-                                </div>
-                            )) : (
-                                <div className="text-center py-8 text-gray-400 text-sm font-medium">
-                                    No upcoming birthdays found.
-                                </div>
-                            )}
-                        </div>
-                    </div>
                 </div>
+
             </div>
 
+            {/* Modals */}
             <AttendanceListModal 
                 isOpen={isAttendanceModalOpen}
                 onClose={() => setIsAttendanceModalOpen(false)}

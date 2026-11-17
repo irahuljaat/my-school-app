@@ -1,3 +1,4 @@
+// components/EditStudentForm.jsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,14 +15,13 @@ import {
     HiOutlineAcademicCap
 } from 'react-icons/hi';
 import { db } from '../firebase/config';
-import { doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useColors } from './ColorComponent';
 
 const STREAMS_DATA = {
     "Science (Medical)": ["Physics", "Chemistry", "Biology"],
     "Science (Non-Medical)": ["Physics", "Chemistry", "Mathematics"],
-    "Commerce": ["Accountancy", "Business Studies", "Economics"], 
-    "Arts": ["History", "Geography", "Pol. Science"]    
+    "Commerce": ["Accountancy", "Business Studies", "Economics"]
 };
 
 const RELIGIONS = ["Hindu", "Muslim", "Sikh", "Christian", "Other"];
@@ -43,18 +43,57 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
         aadhaarNumber: studentData.aadhaarNumber || '',
         isDummy: studentData.isDummy || false,
         isRte: studentData.isRte || false,
+        stream: studentData.stream || '',
         optSubject1: studentData.optionalSubjects?.[0] || '',
         optSubject2: studentData.optionalSubjects?.[1] || '',
         optSubject3: studentData.optionalSubjects?.[2] || '',
     });
     
+    // For Arts stream checkbox selection
+    const [artsSelectedSubjects, setArtsSelectedSubjects] = useState(
+        studentData.stream === 'Arts' ? (studentData.optionalSubjects || []) : []
+    );
+    const [availableSubjects, setAvailableSubjects] = useState([]);
     const [loading, setLoading] = useState(false);
     const [submissionMessage, setSubmissionMessage] = useState(null);
 
     const isHighSchool = formData.grade === '11' || formData.grade === '12';
 
+    // Fetch available subjects from Firestore based on active session and student grade[cite: 7]
     useEffect(() => {
-        if (isHighSchool && STREAMS_DATA[formData.stream]) {
+        async function fetchGradeSubjects() {
+            if (!activeSession || !formData.grade) return;
+            try {
+                const subDocRef = doc(db, 'sessions', activeSession, 'subjects', String(formData.grade));
+                const subDocSnap = await getDoc(subDocRef);
+                if (subDocSnap.exists()) {
+                    const data = subDocSnap.data();
+                    const assigned = data.assignedSubjects || [];
+                    // Exclude Hindi, English, and strict science subjects (Physics, Chemistry, Biology) for Arts
+                    const filtered = assigned.filter(s => {
+                        const lower = String(s).toLowerCase();
+                        if (lower === 'hindi' || lower === 'english') return false;
+                        if (lower === 'physics' || lower === 'chemistry' || lower === 'biology') return false;
+                        return true;
+                    });
+                    setAvailableSubjects(filtered);
+                } else {
+                    setAvailableSubjects([]);
+                }
+            } catch (err) {
+                console.error("Error fetching grade subjects:", err);
+            }
+        }
+        if (isHighSchool) {
+            fetchGradeSubjects();
+        }
+    }, [activeSession, formData.grade, isHighSchool]);
+
+    // Handle stream selection logic
+    useEffect(() => {
+        if (!isHighSchool) return;
+
+        if (STREAMS_DATA[formData.stream]) {
             const subjects = STREAMS_DATA[formData.stream];
             setFormData(prev => ({
                 ...prev,
@@ -62,8 +101,37 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
                 optSubject2: subjects[1] || '',
                 optSubject3: subjects[2] || ''
             }));
+        } else if (formData.stream === 'Arts') {
+            setFormData(prev => ({
+                ...prev,
+                optSubject1: artsSelectedSubjects[0] || '',
+                optSubject2: artsSelectedSubjects[1] || '',
+                optSubject3: artsSelectedSubjects[2] || ''
+            }));
         }
-    }, [formData.stream, isHighSchool]);
+    }, [formData.stream, isHighSchool, artsSelectedSubjects]);
+
+    // Handle Arts subject checkbox toggling (max 3)
+    const handleArtsSubjectToggle = (sub) => {
+        let updated;
+        if (artsSelectedSubjects.includes(sub)) {
+            updated = artsSelectedSubjects.filter(s => s !== sub);
+        } else {
+            if (artsSelectedSubjects.length >= 3) {
+                setSubmissionMessage({ type: 'error', text: 'You can only select a maximum of 3 arts subjects!' });
+                setTimeout(() => setSubmissionMessage(null), 3000);
+                return;
+            }
+            updated = [...artsSelectedSubjects, sub];
+        }
+        setArtsSelectedSubjects(updated);
+        setFormData(prev => ({
+            ...prev,
+            optSubject1: updated[0] || '',
+            optSubject2: updated[1] || '',
+            optSubject3: updated[2] || ''
+        }));
+    };
 
     // Passport-size photo ratio (3:4 vertical aspect ratio) cropping handler
     const handleImageUpload = (e) => {
@@ -117,6 +185,15 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!activeSession) return;
+
+        if (isHighSchool) {
+            const selectedOpt = [formData.optSubject1, formData.optSubject2, formData.optSubject3].filter(Boolean);
+            if (selectedOpt.length < 3) {
+                setSubmissionMessage({ type: 'error', text: 'Please select exactly 3 optional subjects!' });
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -163,6 +240,8 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
         }
     };
 
+    const isFixedStream = formData.stream === 'Science (Medical)' || formData.stream === 'Science (Non-Medical)' || formData.stream === 'Commerce';
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md transition-opacity" onClick={onClose}></div>
@@ -192,7 +271,6 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
                             style={{ backgroundColor: colors.cardBackground, color: colors.text }}
                         >
                             <div className="flex flex-col items-center space-y-3">
-                                {/* Passport size photo ratio box (3:4 vertical aspect ratio) */}
                                 <div className="w-24 h-32 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden relative group transition-all shadow-inner">
                                     {formData.imageUrl ? (
                                         <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Student Passport Photo" />
@@ -336,21 +414,65 @@ export default function EditStudentForm({ studentData, onClose, onStudentUpdated
                             </div>
                         </div>
 
-                        {/* High School Stream Options */}
+                        {/* High School Stream & Optional Subjects Selection */}
                         {isHighSchool && (
                             <div className="p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4" style={{ backgroundColor: `${colors.primary}10` }}>
-                                <div className="flex items-center space-x-2 font-black text-[10px] uppercase tracking-widest" style={{ color: colors.primary }}>
-                                    <HiOutlineAcademicCap className="w-4 h-4" />
-                                    <span>Senior Secondary Stream & Optional Subjects</span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2 font-black text-[10px] uppercase tracking-widest" style={{ color: colors.primary }}>
+                                        <HiOutlineAcademicCap className="w-4 h-4" />
+                                        <span>Senior Secondary Stream & Optional Subjects (Hindi & English Core)</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase">Select exactly 3 subjects</span>
                                 </div>
+
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                     <select name="stream" value={formData.stream} onChange={handleChange} className="px-4 py-3 bg-white rounded-2xl ring-1 ring-purple-200 font-bold text-xs uppercase text-slate-700 outline-none">
                                         <option value="">Select Stream</option>
                                         {Object.keys(STREAMS_DATA).map(s => <option key={s} value={s}>{s}</option>)}
+                                        <option value="Arts">Arts</option>
                                     </select>
-                                    <input name="optSubject1" value={formData.optSubject1} placeholder="Subject 1" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none" onChange={handleChange} />
-                                    <input name="optSubject2" value={formData.optSubject2} placeholder="Subject 2" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none" onChange={handleChange} />
-                                    <input name="optSubject3" value={formData.optSubject3} placeholder="Subject 3" className="px-4 py-3 bg-white rounded-2xl font-bold text-xs text-slate-700 ring-1 ring-purple-100 outline-none" onChange={handleChange} />
+
+                                    {isFixedStream ? (
+                                        <>
+                                            <input readOnly value={formData.optSubject1} className="px-4 py-3 bg-slate-100 rounded-2xl font-bold text-xs text-slate-600 ring-1 ring-purple-100 outline-none cursor-not-allowed" />
+                                            <input readOnly value={formData.optSubject2} className="px-4 py-3 bg-slate-100 rounded-2xl font-bold text-xs text-slate-600 ring-1 ring-purple-100 outline-none cursor-not-allowed" />
+                                            <input readOnly value={formData.optSubject3} className="px-4 py-3 bg-slate-100 rounded-2xl font-bold text-xs text-slate-600 ring-1 ring-purple-100 outline-none cursor-not-allowed" />
+                                        </>
+                                    ) : formData.stream === 'Arts' ? (
+                                        <div className="md:col-span-3 bg-white p-4 rounded-2xl border border-purple-200 space-y-2">
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-indigo-600 uppercase">
+                                                <span>Click to pick 3 Arts Subjects</span>
+                                                <span>Selected: {artsSelectedSubjects.length}/3</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                {availableSubjects.map((sub) => {
+                                                    const isChecked = artsSelectedSubjects.includes(sub);
+                                                    return (
+                                                        <div 
+                                                            key={sub}
+                                                            onClick={() => handleArtsSubjectToggle(sub)}
+                                                            className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                                                                isChecked 
+                                                                    ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs' 
+                                                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-indigo-300 font-medium'
+                                                            }`}
+                                                        >
+                                                            <span className="text-[11px] uppercase">{sub}</span>
+                                                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${isChecked ? 'border-white bg-white/20' : 'border-slate-300'}`}>
+                                                                {isChecked && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input readOnly placeholder="Subject 1" value={formData.optSubject1} className="px-4 py-3 bg-slate-50 rounded-2xl font-bold text-xs text-slate-400 outline-none" />
+                                            <input readOnly placeholder="Subject 2" value={formData.optSubject2} className="px-4 py-3 bg-slate-50 rounded-2xl font-bold text-xs text-slate-400 outline-none" />
+                                            <input readOnly placeholder="Subject 3" value={formData.optSubject3} className="px-4 py-3 bg-slate-50 rounded-2xl font-bold text-xs text-slate-400 outline-none" />
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
