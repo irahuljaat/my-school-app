@@ -54,10 +54,29 @@ function TimeTableCreator({ activeSession }) {
     const [quickSlots, setQuickSlots] = useState(DEFAULT_SLOTS);
     const [isManagingSlots, setIsManagingSlots] = useState(false);
     const [newSlot, setNewSlot] = useState({ label: '', start: '08:00', end: '11:00' });
+    const [isSavingSlots, setIsSavingSlots] = useState(false);
     
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState(null);
+
+    // Load saved shift slots from Firebase
+    const loadShiftSlots = useCallback(async () => {
+        if (!activeSession) return;
+        try {
+            const slotDocRef = doc(db, 'sessions', activeSession, 'settings', 'examShiftSlots');
+            const slotSnap = await getDoc(slotDocRef);
+            if (slotSnap.exists() && Array.isArray(slotSnap.data().slots)) {
+                setQuickSlots(slotSnap.data().slots);
+            } else {
+                // Seed default slots into Firebase if not yet created
+                await setDoc(slotDocRef, { slots: DEFAULT_SLOTS });
+                setQuickSlots(DEFAULT_SLOTS);
+            }
+        } catch (err) {
+            console.error("Shift Slots Load Error:", err);
+        }
+    }, [activeSession]);
 
     const loadExams = useCallback(async () => {
         if (!activeSession) return;
@@ -119,21 +138,42 @@ function TimeTableCreator({ activeSession }) {
         }
     }, [activeSession]);
 
-    useEffect(() => { loadExams(); }, [loadExams]);
-    useEffect(() => { fetchData(selectedExamId, selectedClasses); }, [selectedExamId, selectedClasses, fetchData]);
+    useEffect(() => { 
+        loadShiftSlots();
+        loadExams(); 
+    }, [loadShiftSlots, loadExams]);
+
+    useEffect(() => { 
+        fetchData(selectedExamId, selectedClasses); 
+    }, [selectedExamId, selectedClasses, fetchData]);
 
     const handleAddScheduleItem = (e) => {
         e.preventDefault();
         if (!newScheduleItem.subject || !newScheduleItem.date) return;
-        
-        const hasOverlap = schedule.some(item => {
+
+        // Prevent scheduling the exact same subject twice
+        const isDuplicateSubject = schedule.some(
+            item => item.subject === newScheduleItem.subject
+        );
+
+        if (isDuplicateSubject) {
+            setMessage({ type: 'error', text: `${newScheduleItem.subject} is already scheduled.` });
+            return;
+        }
+
+        // Check for parallel papers on the same date & time (allow it, just notify)
+        const parallelSubject = schedule.find(item => {
             if (item.date !== newScheduleItem.date) return false;
             return newScheduleItem.startTime < item.endTime && newScheduleItem.endTime > item.startTime;
         });
 
-        if (hasOverlap) {
-            setMessage({ type: 'error', text: 'An exam is already scheduled at an overlapping time on this date.' });
-            return;
+        if (parallelSubject) {
+            setMessage({ 
+                type: 'success', 
+                text: `Added! Scheduled parallel to ${parallelSubject.subject}.` 
+            });
+        } else {
+            setMessage(null);
         }
 
         const updated = [...schedule, newScheduleItem];
@@ -143,15 +183,41 @@ function TimeTableCreator({ activeSession }) {
         setNewScheduleItem({ ...newScheduleItem, subject: nextSub });
     };
 
-    const handleAddSlot = (e) => {
+    const handleAddSlot = async (e) => {
         e.preventDefault();
-        if (!newSlot.label) return;
-        setQuickSlots(prev => [...prev, { ...newSlot, id: Date.now().toString() }]);
+        if (!newSlot.label || !activeSession) return;
+        
+        const updatedSlots = [...quickSlots, { ...newSlot, id: Date.now().toString() }];
+        setQuickSlots(updatedSlots);
         setNewSlot({ label: '', start: '08:00', end: '11:00' });
+
+        setIsSavingSlots(true);
+        try {
+            const slotDocRef = doc(db, 'sessions', activeSession, 'settings', 'examShiftSlots');
+            await setDoc(slotDocRef, { slots: updatedSlots, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (err) {
+            console.error("Failed to save shift slot:", err);
+            setMessage({ type: 'error', text: 'Shift added locally, but failed to save to cloud.' });
+        } finally {
+            setIsSavingSlots(false);
+        }
     };
 
-    const handleDeleteSlot = (id) => {
-        setQuickSlots(prev => prev.filter(slot => slot.id !== id));
+    const handleDeleteSlot = async (id) => {
+        if (!activeSession) return;
+        const updatedSlots = quickSlots.filter(slot => slot.id !== id);
+        setQuickSlots(updatedSlots);
+
+        setIsSavingSlots(true);
+        try {
+            const slotDocRef = doc(db, 'sessions', activeSession, 'settings', 'examShiftSlots');
+            await setDoc(slotDocRef, { slots: updatedSlots, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (err) {
+            console.error("Failed to delete shift slot:", err);
+            setMessage({ type: 'error', text: 'Failed to sync deleted shift to cloud.' });
+        } finally {
+            setIsSavingSlots(false);
+        }
     };
 
     const handleSaveTimetable = async () => {
@@ -192,7 +258,7 @@ function TimeTableCreator({ activeSession }) {
                             </div>
                             Date Sheet Manager
                         </h1>
-                        <p className="text-slate-400 font-medium mt-1 text-xs">Configure examination schedules for <span className="font-bold" style={{ color: colors.primary }}>{activeSession}</span>[cite: 11]</p>
+                        <p className="text-slate-400 font-medium mt-1 text-xs">Configure examination schedules for <span className="font-bold" style={{ color: colors.primary }}>{activeSession}</span></p>
                     </div>
                     <button 
                         onClick={handleSaveTimetable} 
@@ -263,7 +329,10 @@ function TimeTableCreator({ activeSession }) {
                             {/* Quick Preset Time Slot Selection & Management */}
                             <div className="mb-6 relative z-10 bg-white/5 p-4 rounded-2xl border border-white/10">
                                 <div className="flex justify-between items-center mb-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quick Shift Slots:</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quick Shift Slots:</span>
+                                        {isSavingSlots && <span className="text-[10px] text-indigo-400 font-bold animate-pulse">Syncing...</span>}
+                                    </div>
                                     <button 
                                         type="button"
                                         onClick={() => setIsManagingSlots(!isManagingSlots)}
@@ -322,8 +391,12 @@ function TimeTableCreator({ activeSession }) {
                                             onChange={(e) => setNewSlot({ ...newSlot, end: e.target.value })} 
                                             className="px-4 py-3 rounded-full bg-white/10 text-white text-xs border border-white/10 outline-none" 
                                         />
-                                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-widest rounded-full py-3">
-                                            Add Shift Slot
+                                        <button 
+                                            type="submit" 
+                                            disabled={isSavingSlots}
+                                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-widest rounded-full py-3"
+                                        >
+                                            {isSavingSlots ? 'Saving...' : 'Add Shift Slot'}
                                         </button>
                                     </form>
                                 )}
