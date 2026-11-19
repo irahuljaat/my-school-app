@@ -19,9 +19,9 @@ import { doc, updateDoc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useColors } from './ColorComponent';
 
 const STREAMS_DATA = {
-    "Science (Medical)": ["Physics", "Chemistry", "Biology"],
-    "Science (Non-Medical)": ["Physics", "Chemistry", "Mathematics"],
-    "Commerce": ["Accountancy", "Business Studies", "Economics"]
+    "Science (Medical)": ["PHYSICS", "CHEMISTRY", "BIOLOGY"],
+    "Science (Non-Medical)": ["PHYSICS", "CHEMISTRY", "MATHEMATICS"],
+    "Commerce": ["ACCOUNTANCY", "BUSSINESS STUDIES", "ECONOMICS"]
 };
 
 const RELIGIONS = ["Hindu", "Muslim", "Sikh", "Christian", "Other"];
